@@ -1,0 +1,8 @@
+{
+    "crons": [
+        {
+            "path": "/api/scrape?key=Z7Fl6JoDMLbE6EpYypxZbwzfgsl96/es0qf1gaykWkc=",
+            "schedule": "0 8 * * *"
+        }
+    ]
+}
