@@ -478,7 +478,7 @@ export default function HockeyDashboard() {
 													</span>
 												)}
 											</div>
-											<div className="w-50 flex justify-between items-center pt-4">
+											<div className="w-50 flex flex-wrap gap-4 justify-between items-center pt-4">
 												<div className="flex items-center gap-1 text-xs font-medium">
 													{session.registrations
 														?.length >= 6 ? (
