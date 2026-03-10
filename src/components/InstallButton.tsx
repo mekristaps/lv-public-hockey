@@ -9,21 +9,34 @@ export default function InstallButton() {
     const [isHidden, setIsHidden] = useState<boolean>(false);
 
 	useEffect(() => {
-		// check if already installed
-		if ((globalThis as any).navigator?.standalone || globalThis.window?.matchMedia("(display-mode: standalone)").matches) {
-			setIsInstalled(true);
-		}
-        
-        // capture install prompt
-        const handler = (event: any) => {
-            event.preventDefault();
-            setDeferredPrompt(event);
+        // 1. Create a safe reference to the global object
+        const gt = globalThis as any;
+
+        // 2. Check for standalone mode (PWA already installed)
+        const isStandalone = 
+            gt.navigator?.standalone || 
+            gt.window?.matchMedia?.("(display-mode: standalone)")?.matches;
+
+        if (isStandalone) {
+            setIsInstalled(true);
+        }
+
+        // 3. Setup the install prompt listener
+        const handler = (e: any) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
         };
 
-        globalThis.window?.addEventListener("beforeinstallprompt", handler);
+        if (gt.window) {
+            gt.window.addEventListener("beforeinstallprompt", handler);
+        }
 
-        return () => globalThis.window?.removeEventListener("beforeinstallprompt", handler);
-	}, []);
+        return () => {
+            if (gt.window) {
+                gt.window.removeEventListener("beforeinstallprompt", handler);
+            }
+        };
+    }, []);
 
     const handleInstallClick = async () => {
         if (!deferredPrompt) {

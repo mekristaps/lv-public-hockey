@@ -53,12 +53,6 @@ export const metadata: Metadata = {
 		description: APP_DESCRIPTION,
 	},
 	manifest: "/manifest.json",
-	themeColor: "#0F172A",
-	viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0",
-};
-
-export const viewport: Viewport = {
-  themeColor: "#0F172A",
 };
 
 interface RootLayoutProps {
