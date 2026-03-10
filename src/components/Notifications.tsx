@@ -1,0 +1,113 @@
+import { useState, useEffect } from "react";
+import { subscribeUserToPush } from "@/utils/push";
+
+import { Bell, BellOff, Loader2 } from "lucide-react";
+
+export default function Notifications() {
+	const [isEnabled, setIsEnabled] = useState(false);
+	const [loading, setLoading] = useState(false);
+
+	const gt = globalThis as any;
+	useEffect(() => {
+		// check if user is already subscribed on mount
+		async function checkStatus() {
+			if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+				const reg = await navigator.serviceWorker.ready;
+				const sub = await reg.pushManager.getSubscription();
+				setIsEnabled(!!sub);
+			}
+		}
+		checkStatus();
+	}, []);
+
+    const toggleNotifications = async () => {
+        console.log('notifications: ', isEnabled);
+        setLoading(true);
+        try {
+            if (isEnabled) {
+                await handleUnsubscribe();
+            } else {
+                await handleSubscribe();
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSubscribe = async () => {
+        const phoneNumber = gt.localStorage?.getItem("hokejs_phone");
+
+        if (!phoneNumber) {
+            alert("Lūdzu, vispirms saglabājiet savu profilu!");
+            return;
+        }
+        console.log('subscribe!');
+        const subscription = await subscribeUserToPush();
+        console.log(subscription);
+        if (!subscription) {
+            return;
+        }
+
+        const res = await fetch("/api/push/subscribe", {
+            method: "POST",
+            body: JSON.stringify({ subscription, phoneNumber }),
+            headers: { "Content-Type": "application/json" },
+        });
+        console.log(res);
+        if (res.ok) {
+            setIsEnabled(true);
+        }
+    };
+
+	const handleUnsubscribe = async () => {
+        const reg = await gt.navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        
+        if (sub) {
+            // 1. Tell the browser to cancel the sub
+            await sub.unsubscribe();
+            
+            // 2. Tell our backend to remove it from Supabase
+            await fetch("/api/push/unsubscribe", {
+                method: "POST",
+                body: JSON.stringify({ endpoint: sub.endpoint }),
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+        setIsEnabled(false);
+    };
+
+    return (
+        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${isEnabled ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                        {isEnabled ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-slate-900">Paziņojumi</h3>
+                        <p className="text-xs text-slate-500">Saņemt ziņas par spēlēm</p>
+                    </div>
+                </div>
+
+                <button
+                    onClick={toggleNotifications}
+                    disabled={loading}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                        isEnabled ? "bg-blue-600" : "bg-slate-300"
+                    }`}
+                >
+                    {loading ? (
+                        <Loader2 className="w-4 h-4 animate-spin mx-auto text-white" />
+                    ) : (
+                        <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                isEnabled ? "translate-x-6" : "translate-x-1"
+                            }`}
+                        />
+                    )}
+                </button>
+            </div>
+        </div>
+    );
+}

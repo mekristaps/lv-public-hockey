@@ -28,6 +28,7 @@ import {
 	XCircle,
 } from "lucide-react";
 import InstallButton from "@/components/InstallButton";
+import Notifications from "@/components/Notifications";
 
 interface FormFields {
 	phone: string;
@@ -346,6 +347,7 @@ export default function HockeyDashboard() {
 						</Button>
 					</div>
 				</form>
+				<Notifications />
 			</section>
 
 			{/* Schedule Section */}

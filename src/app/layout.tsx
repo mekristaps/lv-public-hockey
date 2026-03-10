@@ -69,7 +69,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
 			<body
 				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
 			>
-				<SerwistProvider swUrl="/serwist">{children}</SerwistProvider>
+				<SerwistProvider swUrl="/serwist/sw.js">{children}</SerwistProvider>
 			</body>
 		</html>
 	);
