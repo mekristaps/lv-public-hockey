@@ -71,7 +71,7 @@ export async function GET(request: Request) {
 		}
 
 		const rowsToUpsert = prepareSessionsForDatabase(allSessions);
-
+		
 		if (rowsToUpsert.length > 0) {
 			// 2. Perform the Upsert
 			// 'onConflict' uses the 'external_id' unique constraint we created in SQL
@@ -103,64 +103,72 @@ export async function GET(request: Request) {
 }
 
 function prepareSessionsForDatabase(allSchedules: any[]) {
-	const flatRows: any[] = [];
+    const flatRows: any[] = [];
 
-	allSchedules.forEach((sourceGroup) => {
-		const arenaSource = sourceGroup.source;
-		if (!sourceGroup.sessions) return;
+    allSchedules.forEach((sourceGroup) => {
+        const arenaSource = sourceGroup.source;
+        if (!sourceGroup.sessions) return;
 
-		sourceGroup.sessions.forEach((day: any) => {
-			// 1. Handle Volvo (Nested arenas)
-			if (day.arenas && Array.isArray(day.arenas)) {
-				day.arenas.forEach((arenaRoom: any) => {
-					if (arenaRoom.schedule) {
-						processSlots(
-							arenaRoom.schedule,
-							day.dayDate,
-							arenaSource,
-							flatRows,
-						);
-					}
-				});
-			}
-			// 2. Handle Marupe/Inbox (Direct schedule)
-			else if (day.schedule && Array.isArray(day.schedule)) {
-				processSlots(day.schedule, day.dayDate, arenaSource, flatRows);
-			}
-		});
-	});
+        sourceGroup.sessions.forEach((day: any) => {
+            // 1. Handle Volvo (Nested arenas)
+            if (day.arenas && Array.isArray(day.arenas)) {
+                day.arenas.forEach((arenaRoom: any) => {
+                    if (arenaRoom.schedule) {
+                        processSlots(
+                            arenaRoom.schedule,
+                            day.dayDate,
+                            arenaSource,
+                            flatRows,
+                            arenaRoom.arenaName // Pass "Laukums C" etc.
+                        );
+                    }
+                });
+            }
+            // 2. Handle Marupe/Inbox (Direct schedule)
+            else if (day.schedule && Array.isArray(day.schedule)) {
+                processSlots(day.schedule, day.dayDate, arenaSource, flatRows);
+            }
+        });
+    });
 
-	return flatRows;
+    return flatRows;
 }
 
 // Helper to keep the code clean and avoid repetition
 function processSlots(
-	schedule: any[],
-	dayDate: string,
-	source: string,
-	rows: any[],
+    schedule: any[],
+    dayDate: string,
+    source: string,
+    rows: any[],
+    specificArena?: string // Added optional parameter
 ) {
-	schedule.forEach((slot: any) => {
-		// Volvo uses "19:45-20:45", Marupe uses "22:00 - 23:00"
-		// We only want the START time (the first part)
-		const startTimePart = slot.time.split("-")[0].split("–")[0].trim();
+    schedule.forEach((slot: any) => {
+        const startTimePart = slot.time.split("-")[0].split("–")[0].trim();
+        const isoTimestamp = parseToISO(dayDate, startTimePart);
 
-		const isoTimestamp = parseToISO(dayDate, startTimePart);
+        if (isoTimestamp) {
+            // --- NEW LOGIC FOR ARENA NAMES ---
+            let displayName = source.charAt(0).toUpperCase() + source.slice(1);
 
-		if (isoTimestamp) {
-			const externalId = `${source}_${isoTimestamp}`.replace(
-				/[:.-]/g,
-				"",
-			);
+            if (source.toLowerCase() === 'volvo' && specificArena) {
+                // Extracts "A", "B", or "C" from "Laukums C"
+                const letter = specificArena.split(' ').pop(); 
+                displayName = `Volvo ${letter}`;
+            }
+            // ---------------------------------
 
-			rows.push({
-				arena_name: source.charAt(0).toUpperCase() + source.slice(1),
-				activity_type: slot.name,
-				start_time: isoTimestamp,
-				external_id: externalId,
-			});
-		}
-	});
+            // Use the displayName in the externalId to ensure slots 
+            // at the same time in different arenas don't overwrite each other
+            const externalId = `${displayName.replace(/\s+/g, '')}_${isoTimestamp}`.replace(/[:.-]/g, "");
+
+            rows.push({
+                arena_name: displayName,
+                activity_type: slot.name,
+                start_time: isoTimestamp,
+                external_id: externalId,
+            });
+        }
+    });
 }
 
 function parseInboxSchedule(records: any[][]) {
