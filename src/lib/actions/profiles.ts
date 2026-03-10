@@ -96,7 +96,7 @@ export async function registerAction(profileId: string, sessionId: string) {
 
     if (insertError) {
         console.error("Insert Error:", insertError);
-        return { success: false, message: "Neizdevās pieteikties." };
+        return { success: false, message: `Neizdevās pieteikties. ${insertError}` };
     }
 
     revalidatePath("/");
