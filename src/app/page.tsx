@@ -448,7 +448,10 @@ export default function HockeyDashboard() {
 														?.length === 1
 														? "s"
 														: "i"}{" "}
-													pieteikušies
+													{session.registrations
+														?.length === 1
+														? "pieteicies"
+														: "pieteikušies"}
 												</span>
 											</div>
 											<div className="flex flex-wrap gap-1 mt-3">
