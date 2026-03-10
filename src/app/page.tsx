@@ -570,10 +570,10 @@ export default function HockeyDashboard() {
 			</section>
 
 			{/* Fixed bottom nav placeholder */}
-			<div className="fixed bottom-0 left-0 right-0 border-t bg-white p-3 flex justify-around text-muted-foreground">
+			{/* <div className="fixed bottom-0 left-0 right-0 border-t bg-white p-3 flex justify-around text-muted-foreground">
 				<Trophy className="w-6 h-6 text-primary" />
 				<Users className="w-6 h-6" />
-			</div>
+			</div> */}
 		</div>
 	);
 }
