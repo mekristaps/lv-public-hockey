@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 	try {
 		// MARUPE
 		const marupeSchedule = await getMarupeSchedule();
-		if (marupeSchedule && Array.isArray(marupeSchedule)) {
+		if (marupeSchedule && Array.isArray(marupeSchedule) && marupeSchedule.length > 0) {
 			const marupeSessions = {
 				source: "marupe",
 				sessions: marupeSchedule,
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
 
 		// VOLVO
 		const volvoSchedule = await getVolvoSchedule();
-		if (volvoSchedule && Array.isArray(volvoSchedule)) {
+		if (volvoSchedule && Array.isArray(volvoSchedule) && volvoSchedule.length > 0) {
 			const volvoSessions = {
 				source: "volvo",
 				sessions: volvoSchedule,
@@ -62,11 +62,7 @@ export async function GET(request: Request) {
 		}
 
 		const inboxSchedule = await getInboxSchedule();
-		if (
-			inboxSchedule &&
-			Array.isArray(inboxSchedule) &&
-			inboxSchedule.length > 0
-		) {
+		if (inboxSchedule && Array.isArray(inboxSchedule) && inboxSchedule.length > 0) {
 			const inboxSessions = {
 				source: "inbox",
 				sessions: inboxSchedule,
@@ -266,14 +262,12 @@ async function getInboxSchedule() {
 			relax_column_count: true,
 		});
 		const inboxSchedule = parseInboxSchedule(records);
-		scheduleData = inboxSchedule
-			.map((day) => ({
+		scheduleData = inboxSchedule.map((day) => ({
 				...day,
 				schedule: day.schedule.filter((item: any) => {
-					item.name.toLowerCase().includes("nūjām");
+					return item.name?.toLowerCase().includes("nūjām");
 				}),
-			}))
-			.filter((day) => day.schedule.length > 0);
+			})).filter((day) => day.schedule.length > 0);
 	} catch (error) {
 		console.error(error);
 	}
