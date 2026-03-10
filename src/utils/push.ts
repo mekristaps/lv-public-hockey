@@ -10,9 +10,7 @@ export async function subscribeUserToPush() {
     if (!gt.window || !('serviceWorker' in gt.navigator)) {
         return;
     }
-    console.log('subscribeUserToPush');
     const registration = await gt.navigator.serviceWorker.ready;
-    console.log('registration: ', registration);
     // check if they already have a subscription
     const existingSubscription = await registration.pushManager.getSubscription();
     if (existingSubscription) {
@@ -31,7 +29,7 @@ export async function subscribeUserToPush() {
 function urlBase64ToUint8Array(base64String: string) {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-    const rawData = globalThis.window.atob(base64);
+    const rawData = (globalThis as any).window.atob(base64);
     const outputArray = new Uint8Array(rawData.length);
     for (let i = 0; i < rawData.length; ++i) {
         outputArray[i] = rawData.charCodeAt(i);

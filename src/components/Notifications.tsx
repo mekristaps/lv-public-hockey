@@ -1,3 +1,5 @@
+' use client'
+
 import { useState, useEffect } from "react";
 import { subscribeUserToPush } from "@/utils/push";
 
@@ -11,17 +13,20 @@ export default function Notifications() {
 	useEffect(() => {
 		// check if user is already subscribed on mount
 		async function checkStatus() {
-			if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-				const reg = await navigator.serviceWorker.ready;
-				const sub = await reg.pushManager.getSubscription();
-				setIsEnabled(!!sub);
+			if ("serviceWorker" in navigator) {
+				try {
+                    const reg = await navigator.serviceWorker.ready;
+                    const sub = await reg.pushManager.getSubscription();
+                    setIsEnabled(!!sub);
+                } catch (error) {
+                    console.error("Service Worker check failed:", error);
+                }
 			}
 		}
 		checkStatus();
 	}, []);
 
     const toggleNotifications = async () => {
-        console.log('notifications: ', isEnabled);
         setLoading(true);
         try {
             if (isEnabled) {
@@ -38,12 +43,13 @@ export default function Notifications() {
         const phoneNumber = gt.localStorage?.getItem("hokejs_phone");
 
         if (!phoneNumber) {
-            alert("Lūdzu, vispirms saglabājiet savu profilu!");
+            if (typeof globalThis !== "undefined" && (globalThis as any).alert) {
+				(globalThis as any).alert("Lūdzu, vispirms saglabājiet savu profilu!");
+			}
+            
             return;
         }
-        console.log('subscribe!');
         const subscription = await subscribeUserToPush();
-        console.log(subscription);
         if (!subscription) {
             return;
         }
@@ -53,7 +59,6 @@ export default function Notifications() {
             body: JSON.stringify({ subscription, phoneNumber }),
             headers: { "Content-Type": "application/json" },
         });
-        console.log(res);
         if (res.ok) {
             setIsEnabled(true);
         }
