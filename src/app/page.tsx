@@ -287,7 +287,7 @@ export default function HockeyDashboard() {
 			<section className="p-4 bg-white rounded-xl border shadow-sm space-y-3">
 				<div className="flex justify-between items-center">
 					<h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-						Tavs Profils
+						{profile ? `Sveiks ${profile.full_name}` : 'Izveido profilu!'}
 					</h2>
 					{profile?.is_admin && (
 						<Badge className="bg-blue-600">
@@ -312,7 +312,7 @@ export default function HockeyDashboard() {
 							className="h-9"
 						/>
 						<Button size="sm" className="px-4">
-							Saglabāt
+							{profile ? 'Saglabāt izmaiņas' : 'Izveidot'}
 						</Button>
 					</div>
 				</form>
@@ -413,7 +413,8 @@ export default function HockeyDashboard() {
 												<span>
 													{session.registrations
 														?.length || 0}{" "}
-													spēlētāji pieteikušies
+
+													spēlētāj{session.registrations?.length === 1 ? 's' : 'i'} pieteikušies
 												</span>
 											</div>
 											<div className="flex flex-wrap gap-1 mt-3">
@@ -498,6 +499,7 @@ export default function HockeyDashboard() {
 													)}
 												</div>
 												<Button
+												disabled={!profile}
 													variant={
 														isAlreadyRegistered
 															? "destructive"
