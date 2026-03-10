@@ -14,10 +14,10 @@ const geistMono = Geist_Mono({
 	subsets: ["latin"],
 });
 
-const APP_NAME = "Hokējs MS Nūjas";
-const APP_DEFAULT_TITLE = "Hokējs MS Nūjas";
+const APP_NAME = "MS Hokejs";
+const APP_DEFAULT_TITLE = "MS Hokejs";
 const APP_TITLE_TEMPLATE = "%s - MS Nūjas";
-const APP_DESCRIPTION = "MS ar nūjām saraksts & pieteikšanās";
+const APP_DESCRIPTION = "Masu slidotava ar nūjām saraksts & pieteikšanās";
 
 export const metadata: Metadata = {
 	applicationName: APP_NAME,

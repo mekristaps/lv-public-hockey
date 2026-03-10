@@ -1,11 +1,11 @@
 {
-    "name": "Hokējs MS Nūjas",
-    "short_name": "Hokējs MS",
-    "description": "MS ar nūjām saraksts & pieteikšanās",
+    "name": "MS Hokejs",
+    "short_name": "MS Hokejs",
+    "description": "Masu slidotava ar nūjām saraksts & pieteikšanās",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#ffffff",
-    "theme_color": "#0f172a",
+    "theme_color": "#0F172A",
     "orientation": "portrait",
     "icons": [
         {

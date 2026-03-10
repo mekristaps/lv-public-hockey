@@ -27,6 +27,7 @@ import {
 	Lock,
 	XCircle,
 } from "lucide-react";
+import InstallButton from "@/components/InstallButton";
 
 interface FormFields {
 	phone: string;
@@ -47,6 +48,9 @@ interface HockeySession {
 	arena_name: string;
 	start_time: string;
 }
+
+// check if ios
+const isIOS = /iPad|iPhone|iPod/.test(globalThis.navigator?.userAgent) && !(globalThis as any).navigator?.standalone;
 
 export default function HockeyDashboard() {
 	// 1. User State
@@ -268,7 +272,7 @@ export default function HockeyDashboard() {
 			</div>
 		);
 	}
-
+	
 	return (
 		<div className="max-w-md mx-auto p-4 space-y-6 pb-20">
 			{/* Loading Overlay */}
@@ -298,6 +302,15 @@ export default function HockeyDashboard() {
 					</div>
 				</div>
 			)}
+			{isIOS ? (
+				<div className="bg-slate-800 text-white p-4 rounded-lg text-sm mb-4">
+					<p>Lai instalētu šo lietotni iPhone:</p>
+					<ol className="list-decimal ml-5 mt-2">
+						<li>Nospiediet "Share" pogu (kvadrāts ar bultiņu)</li>
+						<li>Ritiniet uz leju un izvēlieties "Add to Home Screen"</li>
+					</ol>
+				</div>
+			) : <InstallButton />}
 			{/* Profile Section */}
 			<section className="p-4 bg-white rounded-xl border shadow-sm space-y-3">
 				<div className="flex justify-between items-center">
