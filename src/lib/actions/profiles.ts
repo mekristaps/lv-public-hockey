@@ -32,7 +32,7 @@ export async function profileAction(prevFormState: any, formData: FormData) {
 	return {
 		...prevFormState,
 		success: true,
-		message: "Profils saglabāts",
+		message: "Lietotājs pieslēdzies",
 		user: { phone: data.phone_number, name: data.full_name },
 	};
 }

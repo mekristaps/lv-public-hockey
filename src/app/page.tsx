@@ -159,11 +159,26 @@ export default function HockeyDashboard() {
 				);
 			}
 
+			setIsPending(true); // Start the global overlay spinner
+			setStatusMessage({ text: result.message, type: "success" });
+
 			setProfile((prev) => ({
 				...prev!,
 				full_name: result.user.name,
 				phone_number: result.user.phone,
 			}));
+
+			setStatusMessage({ text: result.message, type: "success" });
+
+			// Give the user 1000ms to see the success checkmark
+			setTimeout(() => {
+				if (
+					typeof globalThis !== "undefined" &&
+					(globalThis as any).location
+				) {
+					(globalThis as any).location.reload();
+				}
+			}, 1000);
 		}
 		return result;
 	};
@@ -205,7 +220,7 @@ export default function HockeyDashboard() {
 			} else {
 				setStatusMessage({ text: result.message, type: "success" });
 
-				// Give the user 800ms to see the success checkmark
+				// Give the user 1000ms to see the success checkmark
 				setTimeout(() => {
 					if (
 						typeof globalThis !== "undefined" &&
@@ -287,7 +302,9 @@ export default function HockeyDashboard() {
 			<section className="p-4 bg-white rounded-xl border shadow-sm space-y-3">
 				<div className="flex justify-between items-center">
 					<h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-						{profile ? `Sveiks ${profile.full_name}` : 'Izveido profilu!'}
+						{profile
+							? `Sveiks ${profile.full_name}`
+							: "Izveido profilu!"}
 					</h2>
 					{profile?.is_admin && (
 						<Badge className="bg-blue-600">
@@ -312,7 +329,7 @@ export default function HockeyDashboard() {
 							className="h-9"
 						/>
 						<Button size="sm" className="px-4">
-							{profile ? 'Saglabāt izmaiņas' : 'Izveidot'}
+							{profile ? "Saglabāt izmaiņas" : "Izveidot"}
 						</Button>
 					</div>
 				</form>
@@ -413,8 +430,12 @@ export default function HockeyDashboard() {
 												<span>
 													{session.registrations
 														?.length || 0}{" "}
-
-													spēlētāj{session.registrations?.length === 1 ? 's' : 'i'} pieteikušies
+													spēlētāj
+													{session.registrations
+														?.length === 1
+														? "s"
+														: "i"}{" "}
+													pieteikušies
 												</span>
 											</div>
 											<div className="flex flex-wrap gap-1 mt-3">
@@ -499,7 +520,7 @@ export default function HockeyDashboard() {
 													)}
 												</div>
 												<Button
-												disabled={!profile}
+													disabled={!profile}
 													variant={
 														isAlreadyRegistered
 															? "destructive"
