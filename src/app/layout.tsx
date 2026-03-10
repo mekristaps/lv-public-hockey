@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { SerwistProvider } from "./serwist";
 
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -69,7 +68,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
 			<body
 				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
 			>
-				<SerwistProvider swUrl="/serwist/sw.js">{children}</SerwistProvider>
+				{children}
 			</body>
 		</html>
 	);
