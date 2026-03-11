@@ -389,11 +389,16 @@ export default function HockeyDashboard() {
                                 const registrationCount = session.registrations?.length || 0;
                                 const totalPlayers = session.registrations?.reduce((acc: number, reg: any) => acc + 1 + (reg.guests_count || 0), 0) || 0;
 
+                                const isExpired = new Date(session.start_time).getTime() < new Date().getTime();
                                 // ... Rest of your Card rendering code ...
                                 return (
                                     <Card
                                         key={session.id}
-                                        className={isAlreadyRegistered ? "border-green-500" : conflict ? "border-amber-500" : ""}
+                                        className={`
+                                            ${isAlreadyRegistered ? "border-green-500" : conflict ? "border-amber-500" : ""}
+                                            ${isExpired ? "gap-1 opacity-60 grayscale-[0.5] pointer-events-none select-none bg-slate-50" : ""}
+                                        `}
+                                        //className={isAlreadyRegistered ? "border-green-500" : conflict ? "border-amber-500" : ""}
                                     >
                                         <CardHeader className="pb-2">
                                             <div className="flex justify-between items-start">
@@ -497,70 +502,83 @@ export default function HockeyDashboard() {
                                                     <></>
                                                 )}
                                             </div>
-                                            <div className="w-50 flex flex-wrap gap-4 justify-between items-center pt-4">
+                                            <div className="w-50 flex flex-wrap gap-4 justify-between items-center">
                                                 <div className="flex items-center justify-center w-full gap-1 text-xs font-medium text-center">
-                                                    {totalPlayers >= 6 ? (
-                                                        <span className="text-green-600 flex items-center gap-1">
-                                                            <CheckCircle2 className="w-4 h-4" />
-                                                            {" "}
-                                                            Minimālais skaits savākts!
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-amber-600">
-                                                            Vajag vēl
-                                                            {" "}
-                                                            {6 - (totalPlayers || 0)}
-                                                            {" "}
-                                                            spēlētāj{(6 - totalPlayers) === 1 ? 'u' : 'us'}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-end gap-2 w-full">
-                                                    <Button
-                                                        disabled={!profile}
-                                                        variant={isAlreadyRegistered ? "destructive" : conflict ? "secondary" : "default"}
-                                                        onClick={() => handleRegister(session.id)}
-                                                        className="flex-1 h-10"
-                                                    >
-                                                        {isAlreadyRegistered ? (
-                                                            <>
-                                                                <XCircle className="w-4 h-4 mr-2" />
-                                                                Atteikties
-                                                            </>
-                                                        ) : conflict ? (
-                                                            "Mainīt uz šo"
+                                                    {isExpired ? (
+                                                        totalPlayers >= 6 ? (
+                                                            <span className="text-slate-500 flex items-center gap-1">
+                                                                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                                                Sastāvs tika savākts
+                                                            </span>
                                                         ) : (
-                                                            "Pieteikties"
-                                                        )}
-                                                    </Button>
-                                                    {/* GUEST STEPPER */}
-                                                    {isAlreadyRegistered && (
-                                                        <div className="flex flex-col items-center gap-1">
-                                                            <span className="text-[10px] uppercase font-bold text-slate-400">Viesi</span>
-                                                            <div className="flex items-center bg-slate-100 rounded-md px-1 py-1 gap-2 border border-slate-200">
-                                                                <button
-                                                                    onClick={() => updateGuests(session.id, (currentReg.guests_count || 0) - 1)}
-                                                                    className="p-1 hover:bg-white rounded-sm transition-colors disabled:opacity-30"
-                                                                    disabled={(currentReg.guests_count || 0) <= 0}
-                                                                >
-                                                                    <MinusCircle className="w-5 h-5 text-slate-600" />
-                                                                </button>
-
-                                                                <span className="text-sm font-bold min-w-[24px] text-center">
-                                                                    +{currentReg.guests_count || 0}
-                                                                </span>
-
-                                                                <button
-                                                                    onClick={() => updateGuests(session.id, (currentReg.guests_count || 0) + 1)}
-                                                                    className="p-1 hover:bg-white rounded-sm transition-colors text-slate-600"
-                                                                >
-                                                                    <PlusCircle className="w-5 h-5" />
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                        
+                                                            <span className="text-slate-400 flex items-center gap-1">
+                                                                <XCircle className="w-4 h-4 text-red-400" />
+                                                                Sastāvs netika savākts
+                                                            </span>
+                                                        )
+                                                    ) : (
+                                                        // Active Session Logic (Your existing code)
+                                                        totalPlayers >= 6 ? (
+                                                            <span className="text-green-600 flex items-center gap-1">
+                                                                <CheckCircle2 className="w-4 h-4" />
+                                                                Minimālais skaits savākts!
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-amber-600">
+                                                                Vajag vēl {6 - (totalPlayers || 0)} spēlētāj{(6 - totalPlayers) === 1 ? 'u' : 'us'}
+                                                            </span>
+                                                        )
                                                     )}
                                                 </div>
+                                                {!isExpired && (
+                                                    <div className="flex items-end gap-2 w-full">
+                                                        <Button
+                                                            disabled={!profile}
+                                                            variant={isAlreadyRegistered ? "destructive" : conflict ? "secondary" : "default"}
+                                                            onClick={() => handleRegister(session.id)}
+                                                            className="flex-1 h-10"
+                                                        >
+                                                            {isAlreadyRegistered ? (
+                                                                <>
+                                                                    <XCircle className="w-4 h-4 mr-2" />
+                                                                    Atteikties
+                                                                </>
+                                                            ) : conflict ? (
+                                                                "Mainīt uz šo"
+                                                            ) : (
+                                                                "Pieteikties"
+                                                            )}
+                                                        </Button>
+                                                        {/* GUEST STEPPER */}
+                                                        {isAlreadyRegistered && (
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                <span className="text-[10px] uppercase font-bold text-slate-400">Viesi</span>
+                                                                <div className="flex items-center bg-slate-100 rounded-md px-1 py-1 gap-2 border border-slate-200">
+                                                                    <button
+                                                                        onClick={() => updateGuests(session.id, (currentReg.guests_count || 0) - 1)}
+                                                                        className="p-1 hover:bg-white rounded-sm transition-colors disabled:opacity-30"
+                                                                        disabled={(currentReg.guests_count || 0) <= 0}
+                                                                    >
+                                                                        <MinusCircle className="w-5 h-5 text-slate-600" />
+                                                                    </button>
+
+                                                                    <span className="text-sm font-bold min-w-[24px] text-center">
+                                                                        +{currentReg.guests_count || 0}
+                                                                    </span>
+
+                                                                    <button
+                                                                        onClick={() => updateGuests(session.id, (currentReg.guests_count || 0) + 1)}
+                                                                        className="p-1 hover:bg-white rounded-sm transition-colors text-slate-600"
+                                                                    >
+                                                                        <PlusCircle className="w-5 h-5" />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                        )}
+                                                    </div>
+                                                )}
+                                                
                                             </div>
                                         </CardFooter>
                                     </Card>
