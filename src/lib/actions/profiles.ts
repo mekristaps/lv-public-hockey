@@ -4,37 +4,37 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 export async function profileAction(prevFormState: any, formData: FormData) {
-	const supabase = await createClient();
+    const supabase = await createClient();
 
-	const fullName = formData.get("full_name");
-	const phone = formData.get("phone");
+    const fullName = formData.get("full_name");
+    const phone = formData.get("phone");
 
-	if (!phone || !fullName) {
-		return { ...prevFormState, error: "Lūdzu aizpildiet visus laukus" };
-	}
+    if (!phone || !fullName) {
+        return { ...prevFormState, error: "Lūdzu aizpildiet visus laukus" };
+    }
 
-	// Upsert: If phone_number exists, update full_name. If not, insert.
-	const { data, error } = await supabase
-		.from("profiles")
-		.upsert(
-			{ phone_number: phone, full_name: fullName },
-			{ onConflict: "phone_number" },
-		)
-		.select()
-		.single();
+    // Upsert: If phone_number exists, update full_name. If not, insert.
+    const { data, error } = await supabase
+        .from("profiles")
+        .upsert(
+            { phone_number: phone, full_name: fullName },
+            { onConflict: "phone_number" },
+        )
+        .select()
+        .single();
 
-	if (error) {
-		console.error("Database Error:", error);
-		return { ...prevFormState, error: "Kļūda saglabājot profilu" };
-	}
+    if (error) {
+        console.error("Database Error:", error);
+        return { ...prevFormState, error: "Kļūda saglabājot profilu" };
+    }
 
-	revalidatePath("/");
-	return {
-		...prevFormState,
-		success: true,
-		message: "Lietotājs pieslēdzies",
-		user: { phone: data.phone_number, name: data.full_name },
-	};
+    revalidatePath("/");
+    return {
+        ...prevFormState,
+        success: true,
+        message: "Lietotājs pieslēdzies",
+        user: { phone: data.phone_number, name: data.full_name },
+    };
 }
 
 export async function registerAction(profileId: string, sessionId: string) {
@@ -100,8 +100,29 @@ export async function registerAction(profileId: string, sessionId: string) {
     }
 
     revalidatePath("/");
-    return { 
-        success: true, 
-        message: conflicts && conflicts.length > 0 ? "Laiks veiksmīgi pārcelts!" : "Veiksmīgi pieteicies!" 
+    return {
+        success: true,
+        message: conflicts && conflicts.length > 0 ? "Laiks veiksmīgi pārcelts!" : "Veiksmīgi pieteicies!"
+    };
+}
+
+export async function updateGuestsAction(profileId: string, sessionId: string, validatedCount: number) {
+    const supabase = await createClient();
+
+    const { error } = await supabase
+        .from('registrations')
+        .update({ guests_count: validatedCount })
+        .eq('session_id', sessionId)
+        .eq('profile_id', profileId);
+
+    if (error) {
+        console.error("Update Error:", error);
+        return { success: false, message: "Neizdevās atjaunināt viesu skaitu" };
+    }
+
+    revalidatePath("/");
+    return {
+        success: true,
+        message: "Veiksmīgi atjaunināts viesu skaits!"
     };
 }

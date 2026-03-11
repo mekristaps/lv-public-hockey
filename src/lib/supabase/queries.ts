@@ -22,7 +22,8 @@ export async function getUserProfile(supabase: SupabaseClient, phoneNumber: stri
         .select(`
             *,
             registrations (
-                session_id
+                session_id,
+                guests_count
             )
         `)
         .eq('phone_number', phoneNumber)
@@ -51,7 +52,8 @@ export async function getSchedule(supabase: SupabaseClient) {
                 profiles (
                     full_name,
                     phone_number
-                )
+                ),
+                guests_count
             )
         `)
         .gte('start_time', now.toISOString())

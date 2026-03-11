@@ -27,19 +27,118 @@ Deno.serve(async (req) => {
     let payload: any = {};
     try {
         payload = await req.json();
-    } catch {
+        //console.log("Payload received:", payload);
+    } catch (e) {
         // Fallback for Cron
+        console.error("JSON Parse Error:", e);
     }
 
     const notifications: any = [];
-    // Add this log to see what is actually arriving
     
-    // --- CASE A: ADMIN NOTIFICATION (TRIGGER) ---
-    // --- CASE A: ADMIN NOTIFICATION (JOIN / UNREG) ---
+    // --- CASE F: MINIMUM REACHED (6/6) ---
+    if (payload?.type === 'min_reached') {
+        try {
+            const { data: session, error } = await supabase
+                .from('sessions')
+                .select(`
+                    id, arena_name, start_time,
+                    registrations ( 
+                        profiles ( push_subscriptions ( subscription_json ) ) 
+                    )
+                `)
+                .eq('id', payload.session_id)
+                .single();
+
+            if (error || !session) return new Response("Session not found", { status: 404 });
+
+            const dateObj = new Date(session.start_time);
+            const formattedTime = dateObj.toLocaleTimeString('lv-LV', { 
+                hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Riga' 
+            });
+
+            const msg = JSON.stringify({
+                title: "Sastāvs savākts! 🏒✅",
+                body: `Pieteikušies 6 spēlētāji - ${session.arena_name} plkst. ${formattedTime}. Tiekamies!`,
+                url: `/sessions/${session.id}`
+            });
+
+            // Notify everyone in this session
+            session.registrations?.forEach((reg: any) => {
+                reg.profiles?.push_subscriptions?.forEach((sub: any) => {
+                    notifications.push(WebPush.sendNotification(sub.subscription_json, msg));
+                });
+            });
+
+        } catch (err: any) {
+            console.error("Min reached error:", err.message);
+        }
+    }
+    // --- CASE C: SESSION SYNC UPDATES (TIME CHANGE / CANCELLATION) ---
+    else if (payload?.type === 'session_update' || payload?.type === 'session_cancellation') {
+        const isUpdate = payload.type === 'session_update';
+
+        try {
+            // Direct query to registrations is more reliable
+            const { data: subscribers, error: subError } = await supabase
+                .from('registrations')
+                .select(`
+                    profiles (
+                        push_subscriptions ( id, subscription_json )
+                    )
+                `)
+                .eq('session_id', payload.session_id);
+
+            if (subError || !subscribers) throw new Error("Could not fetch subscribers");
+
+            // 2. Formatting Helpers for the Payload Data
+            const dateObj = new Date(payload.old_time);
+            const formattedDate = dateObj.toLocaleDateString('lv-LV', {
+                day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'Europe/Riga'
+            }).replace(/\//g, '.');
+
+            const formatTime = (iso: string) => new Date(iso).toLocaleTimeString('lv-LV', {
+                hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Riga'
+            });
+
+            // sessionInfo constructed from Payload
+            const sessionInfo = `${payload.arena_name} (${formattedDate} | ${formatTime(payload.old_time)})`;
+
+            // 3. Build the Strings exactly as requested
+            const title = isUpdate ? "Izmaiņas laikā! 🕒" : "ATCELTS! ❌";
+            const body = isUpdate
+                ? `${sessionInfo} - pārcelts laiks no ${formatTime(payload.old_time)} ➡️ ${formatTime(payload.new_time)}`
+                : `${sessionInfo} - atcelts ❌!`;
+
+            const msg = JSON.stringify({ title, body, url: "/" });
+
+            // Populate the notifications array
+            subscribers.forEach((reg: any) => {
+                reg.profiles?.push_subscriptions?.forEach((sub: any) => {
+                    if (sub.subscription_json) {
+                        notifications.push(
+                            WebPush.sendNotification(sub.subscription_json, msg)
+                                .then(() => ({ success: true }))
+                                .catch(async (err: any) => {
+                                    if (err.statusCode === 410 || err.statusCode === 404) {
+                                        // Cleanup dead token
+                                        await supabase.from('push_subscriptions').delete().eq('id', sub.id);
+                                    }
+                                    return { success: false };
+                                })
+                        );
+                    }
+                });
+            });
+
+        } catch (err: any) {
+            console.error("Sync notification error:", err);
+            return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+        }
+    }
     // --- CASE A: ADMIN & PLAYER NOTIFICATIONS (JOIN / UNREG) ---
-    if (payload?.type === 'admin_notification' || payload?.type === 'admin_unreg') {
+    else if (payload?.type === 'admin_notification' || payload?.type === 'admin_unreg') {
         const isJoin = payload.type === 'admin_notification';
-        
+
         try {
             let profileId = payload.profile_id;
             let sessionId = payload.session_id;
@@ -76,7 +175,7 @@ Deno.serve(async (req) => {
 
             const sessionInfo = `${session.arena_name} (${formattedDate} | ${formattedTime})`;
             const playerCount = session.registrations?.length || 0;
-            
+
             // 1. ADMIN NOTIFICATION LOGIC
             let adminTitle = isJoin ? "Jauns spēlētājs! 🏒" : "Spēlētājs atteicās ❌";
             if (isJoin && playerCount === 6) adminTitle = "Minimums sasniegts! ✅ (6/6)";
@@ -89,7 +188,7 @@ Deno.serve(async (req) => {
 
             // Get Admins
             const { data: admins } = await supabase.from('profiles').select('id, push_subscriptions(subscription_json)').eq('is_admin', true);
-            
+
             admins?.forEach((admin: any) => {
                 admin.push_subscriptions?.forEach((sub: any) => {
                     notifications.push(WebPush.sendNotification(sub.subscription_json, adminMsg));
