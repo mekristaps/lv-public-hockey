@@ -97,7 +97,6 @@ export default function HockeyDashboard() {
                 ]);
 
                 // 3. Verify the session is still valid (PIN hasn't changed)
-                console.log(userProfile);
                 if (userProfile && parsedSession && userProfile.pin_code === parsedSession.pin_code) {
                     setProfile(userProfile);
                 } else {
@@ -431,7 +430,7 @@ export default function HockeyDashboard() {
                         )}
                     </div>
                 </form>
-                <Notifications />
+                {profile && <Notifications />}
             </section>
 
             {/* Schedule Section */}
