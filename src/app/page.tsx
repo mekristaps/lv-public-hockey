@@ -28,7 +28,8 @@ import {
     XCircle,
     PlusCircle,
     MinusCircle,
-    UserPlus
+    UserPlus,
+    AlertCircle
 } from "lucide-react";
 import InstallButton from "@/components/InstallButton";
 import Notifications from "@/components/Notifications";
@@ -42,6 +43,7 @@ interface UserProfile {
     created_at: string;
     id: string;
     phone_number: string;
+    pin_code: string;
     full_name: string;
     is_admin: boolean;
     registrations: any[];
@@ -177,6 +179,7 @@ export default function HockeyDashboard() {
     };
 
     const [formState, formAction] = useActionState(profileDispatchAction, {});
+    const error = formState?.error;
 
     const handleRegister = async (sessionId: string) => {
         if (!profile?.id) {
@@ -331,33 +334,40 @@ export default function HockeyDashboard() {
                     )}
                 </div>
                 <form action={formAction} className="space-y-2">
+                    {profile && (
+                        <input type="hidden" name="current_session_pin" value={profile.pin_code} />
+                    )}
                     <Input
                         placeholder="Vārds"
                         name="full_name"
                         id="full_name"
                         defaultValue={initialFormValues.full_name}
+                        title="Lūdzu ievadiet Vārdu un Uzvārdu (tikai burti)"
                         className="h-9"
                         required
                     />
                     <div className="flex flex-col sm:flex-row gap-2">
                         <Input
                             placeholder="Telefona numurs"
-                            type="text"
+                            type="tel"
                             name="phone"
                             id="phone"
+                            minLength={8}
                             defaultValue={initialFormValues.phone}
+                            pattern="[0-9]{8,12}"
+                            title="Telefona numuram jābūt vismaz 8 cipariem (bez burtiem)"
                             className="h-9 flex-1"
                             required
                         />
                         {/* PIN INPUT */}
-                        <div className="relative flex-1">
+                        <div className="relative flex-1 min-w-55">
                             <Input
-                                placeholder={profile ? "Mainīt PIN" : "Izveido 4-ciparu PIN"}
+                                placeholder={profile ? "Mainīt PIN (min 4 cipari)" : "Vismaz 4-ciparu PIN"}
                                 name="pin_code"
                                 id="pin_code"
                                 type="password"
                                 inputMode="numeric"
-                                maxLength={4}
+                                minLength={4}
                                 pattern="[0-9]*"
                                 className="h-9 pl-8"
                                 required={!profile} // Only required for first-time creation
@@ -365,6 +375,17 @@ export default function HockeyDashboard() {
                             <Lock className="w-3 h-3 absolute left-3 top-3 text-muted-foreground" />
                         </div>
                     </div>
+                     {!profile && (
+                        <p className="text-[10px] text-center text-muted-foreground">
+                                PIN jāsastāv vismaz no 4 cipariem!
+                        </p>
+                    )}
+                    {formState?.error && (
+                        <div className="flex items-center gap-2 p-2 text-[11px] bg-red-50 border border-red-200 text-red-600 rounded-md animate-in fade-in slide-in-from-top-1">
+                            <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                            <p>{formState.error}</p>
+                        </div>
+                    )}
                     <div className="flex flex-col gap-2">
                         <Button size="sm" className="w-full">
                             {profile ? "Saglabāt izmaiņas" : "Izveidot un autorizēties"}

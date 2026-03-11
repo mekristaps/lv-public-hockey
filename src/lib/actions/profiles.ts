@@ -6,11 +6,31 @@ import { revalidatePath } from "next/cache";
 export async function profileAction(prevFormState: any, formData: FormData) {
     const supabase = await createClient();
 
-    const fullName = formData.get("full_name");
-    const phone = formData.get("phone");
-    const pinCode = formData.get('pin_code');
+    // Convert to strings early to avoid TypeScript 'File' errors
+    const fullName = formData.get("full_name")?.toString().trim() || "";
+    const phone = formData.get("phone")?.toString().replace(/\s/g, "") || "";
+    const newPin = formData.get('pin_code')?.toString() || "";
+    const sessionPin = formData.get('current_session_pin')?.toString() || "";
 
-    if (!phone || !fullName || !pinCode) {
+    // 1. Phone Validation: Only digits, 8-12 characters
+    const phoneRegex = /^\d{8,12}$/;
+    if (!phoneRegex.test(phone)) {
+        return { ...prevFormState, error: "Nederīgs telefona numurs! Jābūt 8-12 cipariem (bez burtiem)." };
+    }
+
+    // 2. Name Validation: No numbers allowed, support Latvian chars
+    const nameRegex = /^[A-ZĀČĒĢĪĶĻŅŠŪŽa-zāčēģīķļņšūž\s-]+$/;
+    if (!nameRegex.test(fullName) || fullName.length < 3) {
+        return { ...prevFormState, error: "Nederīgs vārds! Izmantojiet tikai burtus (vismaz 3)." };
+    }
+
+    // 3. PIN Validation: Exactly 4 digits
+    const pinRegex = /^\d{4}$/;
+    if (!pinRegex.test(newPin)) {
+        return { ...prevFormState, error: "PIN kodam jābūt tieši 4 cipariem!" };
+    }
+
+    if (!phone || !fullName || !newPin) {
         return { ...prevFormState, error: "Lūdzu aizpildiet visus laukus" };
     }
 
@@ -22,16 +42,23 @@ export async function profileAction(prevFormState: any, formData: FormData) {
         .single();
     
     if (existingProfile) {
-        // 2. Security Check: Verify PIN matches
-        // If the user is already logged in (updating name), or if they are logging in from new device
-        if (existingProfile.pin_code && existingProfile.pin_code !== pinCode) {
+        // AUTH LOGIC: 
+        // 1. If the user provided a 'sessionPin' (they are logged in), verify it.
+        // 2. If they are NOT logged in (new device), verify the 'newPin' they just typed matches the DB.
+        const pinToVerify = sessionPin || newPin;
+
+        if (existingProfile.pin_code && existingProfile.pin_code !== pinToVerify) {
             return { ...prevFormState, error: "Nepareizs PIN kods šim numuram!" };
         }
 
         // 3. Update existing profile (Update name or PIN if they want to change it)
+        // Now it's safe to update to the new values
         const { data: updatedData, error: updateError } = await supabase
             .from("profiles")
-            .update({ full_name: fullName, pin_code: pinCode })
+            .update({ 
+                full_name: fullName, 
+                pin_code: newPin // This updates the PIN to the one they typed
+            })
             .eq("phone_number", phone)
             .select()
             .single();
@@ -52,7 +79,7 @@ export async function profileAction(prevFormState: any, formData: FormData) {
     // 4. Create new profile if it doesn't exist
     const { data: newData, error: insertError } = await supabase
         .from("profiles")
-        .insert({ phone_number: phone, full_name: fullName, pin_code: pinCode })
+        .insert({ phone_number: phone, full_name: fullName, pin_code: newPin })
         .select()
         .single();
     
