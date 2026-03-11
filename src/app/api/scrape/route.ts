@@ -6,6 +6,9 @@ import { parse } from "csv-parse/sync";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
+    // Define the arenas we expect to handle
+    const EXPECTED_ARENAS = ["Marupe", "Volvo A", "Volvo B", "Volvo C", "Inbox"];
+
     const { searchParams } = new URL(request.url);
     const key = searchParams.get("key");
     if (key !== process.env.CRON_SECRET) {
@@ -74,7 +77,8 @@ export async function GET(request: Request) {
 
         if (rowsToUpsert.length > 0) {
             // 1. Get the sources we actually just scraped
-            const activeSources = [...new Set(rowsToUpsert.map(r => r.arena_name))];
+            const activeSources = EXPECTED_ARENAS;
+            //const activeSources = [...new Set(rowsToUpsert.map(r => r.arena_name))];
 
             // 2. Fetch all upcoming sessions from DB for these specific arenas
             const { data: dbSessions } = await supabase
@@ -117,10 +121,12 @@ export async function GET(request: Request) {
                                 .eq("id", dbSession.id);
 
                             // TRIGGER NOTIFICATION: "Time changed for your game!"
-                            await triggerPushNotification(dbSession.id, "session_update", {
-                                arena_name: dbSession.arena_name,
-                                old_time: dbSession.start_time,
-                                new_time: newSessionData.start_time
+                            const { error } = await supabase.rpc('trigger_session_sync_notification', {
+                                p_session_id: dbSession.id,
+                                p_type: "session_update",
+                                p_arena_name: dbSession.arena_name,
+                                p_old_time: dbSession.start_time,
+                                p_new_time: newSessionData.start_time || null
                             });
 
                             // Remove from upsert list so we don't double-insert
@@ -130,8 +136,13 @@ export async function GET(request: Request) {
                         else {
                             // CASE: DELETION
                             // 1. Notify everyone registered for dbSession.id
-                            await triggerPushNotification(dbSession.id, "session_cancellation", {
-                                arena_name: dbSession.arena_name
+
+                            const { error } = await supabase.rpc('trigger_session_sync_notification', {
+                                p_session_id: dbSession.id,
+                                p_type: "session_cancellation",
+                                p_arena_name: dbSession.arena_name,
+                                p_old_time: dbSession.start_time,
+                                p_new_time: null
                             });
 
                             // 2. Delete the session (Cascade will handle registrations)

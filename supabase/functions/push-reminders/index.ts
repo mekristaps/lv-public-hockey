@@ -78,17 +78,34 @@ Deno.serve(async (req) => {
         const isUpdate = payload.type === 'session_update';
 
         try {
+            let subscribers;
             // Direct query to registrations is more reliable
-            const { data: subscribers, error: subError } = await supabase
-                .from('registrations')
-                .select(`
-                    profiles (
+            // Check if the DB already gave us the IDs
+            if (payload.subscriber_ids && payload.subscriber_ids.length > 0) {
+                const { data, error: profError } = await supabase
+                    .from('profiles')
+                    .select(`
                         push_subscriptions ( id, subscription_json )
-                    )
-                `)
-                .eq('session_id', payload.session_id);
+                    `)
+                    .in('id', payload.subscriber_ids);
+                
+                if (profError) throw profError;
+                // Map to match your existing 'reg.profiles' structure
+                subscribers = data?.map(p => ({ profiles: p }));
+            } else {
+                // Fallback for manual calls or if IDs weren't passed
+                const { data, error: subError } = await supabase
+                    .from('registrations')
+                    .select('profiles ( push_subscriptions ( id, subscription_json ) )')
+                    .eq('session_id', payload.session_id);
+                    
+                if (subError) throw subError;
+                subscribers = data;
+            }
 
-            if (subError || !subscribers) throw new Error("Could not fetch subscribers");
+            if (!subscribers || subscribers.length === 0) {
+                return new Response("No subscribers found", { status: 200 });
+            }
 
             // 2. Formatting Helpers for the Payload Data
             const dateObj = new Date(payload.old_time);
