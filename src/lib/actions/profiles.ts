@@ -123,20 +123,6 @@ export async function requestPinHelpAction(phone: string, name: string, pin: str
         console.error("DB Error:", error);
         return { success: false };
     }
-
-    // 2. Invoke the Edge Function to notify admins
-    try {
-        await supabase.functions.invoke('push-notifications', {
-            body: { 
-                type: 'admin_forgot_pin', 
-                request_id: data.id 
-            }
-        });
-    } catch (invokeError) {
-        // We log the error but return success: true because 
-        // the help request is already saved in the database.
-        console.error("Notification failed to send:", invokeError);
-    }
     
     return { success: true };
 }
