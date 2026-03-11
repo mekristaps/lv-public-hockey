@@ -79,17 +79,25 @@ export default function HockeyDashboard() {
         async function loadInitialData() {
             setIsLoading(true);
             try {
-                // 1. Check Local Storage (Safe check for build)
-                // Inside your useEffect
-                const savedPhone = typeof globalThis !== "undefined" ? (globalThis as any).localStorage?.getItem("hokejs_phone") : null;
+                // 1. Get the SAVED profile from Local Storage
+                const savedData = localStorage.getItem("hokejs_user_session");
+                const parsedSession = savedData ? JSON.parse(savedData) : null;
 
-                // 2. Parallel Fetch: Profile and Schedule
+                // 2. Parallel Fetch
                 const [userProfile, sessions] = await Promise.all([
-                    savedPhone ? getUserProfile(supabase, savedPhone) : Promise.resolve(null), getSchedule(supabase)
+                    parsedSession?.phone_number 
+                        ? getUserProfile(supabase, parsedSession.phone_number) 
+                        : Promise.resolve(null), 
+                    getSchedule(supabase)
                 ]);
 
-                if (userProfile) {
+                // 3. Verify the session is still valid (PIN hasn't changed)
+                if (userProfile && parsedSession && userProfile.pin_code === parsedSession.pin_code) {
                     setProfile(userProfile);
+                } else {
+                    // If PIN changed or user not found, clear local storage
+                    if (parsedSession) localStorage.removeItem("hokejs_user_session");
+                    setProfile(undefined);
                 }
                 setDbSessions(sessions || []);
 
@@ -137,18 +145,19 @@ export default function HockeyDashboard() {
             const isBrowser = typeof globalThis !== "undefined" && (globalThis as any).localStorage;
 
             if (isBrowser) {
+                const sessionData = {
+                    phone_number: result.user.phone_number,
+                    pin_code: result.user.pin_code,
+                    full_name: result.user.full_name
+                };
+                (globalThis as any).localStorage.setItem("hokejs_user_session", JSON.stringify(sessionData));
                 (globalThis as any).localStorage.setItem("hokejs_phone", result.user.phone);
                 (globalThis as any).localStorage.setItem("hokejs_name", result.user.name);
             }
 
             setIsPending(true); // Start the global overlay spinner
             setStatusMessage({ text: result.message, type: "success" });
-
-            setProfile((prev) => ({
-                ...prev!,
-                full_name: result.user.name,
-                phone_number: result.user.phone
-            }));
+            setProfile(result.user);
 
             setStatusMessage({ text: result.message, type: "success" });
 
@@ -323,25 +332,49 @@ export default function HockeyDashboard() {
                 </div>
                 <form action={formAction} className="space-y-2">
                     <Input
-                        placeholder="Vārds Uzvārds"
+                        placeholder="Vārds"
                         name="full_name"
                         id="full_name"
                         defaultValue={initialFormValues.full_name}
                         className="h-9"
                         required
                     />
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                         <Input
                             placeholder="Telefona numurs"
+                            type="text"
                             name="phone"
                             id="phone"
                             defaultValue={initialFormValues.phone}
-                            className="h-9"
+                            className="h-9 flex-1"
                             required
                         />
-                        <Button size="sm" className="px-4">
-                            {profile ? "Saglabāt izmaiņas" : "Izveidot"}
+                        {/* PIN INPUT */}
+                        <div className="relative flex-1">
+                            <Input
+                                placeholder={profile ? "Mainīt PIN" : "Izveido 4-ciparu PIN"}
+                                name="pin_code"
+                                id="pin_code"
+                                type="password"
+                                inputMode="numeric"
+                                maxLength={4}
+                                pattern="[0-9]*"
+                                className="h-9 pl-8"
+                                required={!profile} // Only required for first-time creation
+                            />
+                            <Lock className="w-3 h-3 absolute left-3 top-3 text-muted-foreground" />
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <Button size="sm" className="w-full">
+                            {profile ? "Saglabāt izmaiņas" : "Izveidot un autorizēties"}
                         </Button>
+                        
+                        {profile && (
+                            <p className="text-[10px] text-center text-muted-foreground">
+                                PIN nepieciešams, lai pieteiktos no citas ierīces.
+                            </p>
+                        )}
                     </div>
                 </form>
                 <Notifications />

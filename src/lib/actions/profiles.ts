@@ -8,35 +8,69 @@ export async function profileAction(prevFormState: any, formData: FormData) {
 
     const fullName = formData.get("full_name");
     const phone = formData.get("phone");
+    const pinCode = formData.get('pin_code');
 
-    if (!phone || !fullName) {
+    if (!phone || !fullName || !pinCode) {
         return { ...prevFormState, error: "Lūdzu aizpildiet visus laukus" };
     }
 
-    // Upsert: If phone_number exists, update full_name. If not, insert.
-    const { data, error } = await supabase
+    // 1. Check if the profile already exists
+    const { data: existingProfile } = await supabase
         .from("profiles")
-        .upsert(
-            { phone_number: phone, full_name: fullName },
-            { onConflict: "phone_number" },
-        )
+        .select("*")
+        .eq("phone_number", phone)
+        .single();
+    
+    if (existingProfile) {
+        // 2. Security Check: Verify PIN matches
+        // If the user is already logged in (updating name), or if they are logging in from new device
+        if (existingProfile.pin_code && existingProfile.pin_code !== pinCode) {
+            return { ...prevFormState, error: "Nepareizs PIN kods šim numuram!" };
+        }
+
+        // 3. Update existing profile (Update name or PIN if they want to change it)
+        const { data: updatedData, error: updateError } = await supabase
+            .from("profiles")
+            .update({ full_name: fullName, pin_code: pinCode })
+            .eq("phone_number", phone)
+            .select()
+            .single();
+        
+        if (updateError) {
+            return { ...prevFormState, error: "Kļūda atjaunojot profilu" };
+        }
+
+        revalidatePath("/");
+        return {
+            ...prevFormState,
+            success: true,
+            message: "Profils atjaunots",
+            user: updatedData,
+        };
+    }
+
+    // 4. Create new profile if it doesn't exist
+    const { data: newData, error: insertError } = await supabase
+        .from("profiles")
+        .insert({ phone_number: phone, full_name: fullName, pin_code: pinCode })
         .select()
         .single();
-
-    if (error) {
-        console.error("Database Error:", error);
-        return { ...prevFormState, error: "Kļūda saglabājot profilu" };
+    
+    if (insertError) {
+        console.error("Database Error:", insertError);
+        return { ...prevFormState, error: "Kļūda izveidojot profilu" };
     }
 
     revalidatePath("/");
     return {
         ...prevFormState,
         success: true,
-        message: "Lietotājs pieslēdzies",
-        user: { phone: data.phone_number, name: data.full_name },
+        message: "Profils izveidots",
+        user: newData,
     };
 }
 
+// session registering
 export async function registerAction(profileId: string, sessionId: string) {
     const supabase = await createClient();
 
