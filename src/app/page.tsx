@@ -4,7 +4,7 @@ import { useState, useEffect, useActionState, useMemo, Fragment } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import { getUserProfile, getSchedule } from "@/lib/supabase/queries";
-import { profileAction, registerAction, updateGuestsAction } from "@/lib/actions/profiles";
+import { profileAction, requestPinHelpAction, registerAction, updateGuestsAction } from "@/lib/actions/profiles";
 
 import {
     Card,
@@ -29,7 +29,7 @@ import {
     PlusCircle,
     MinusCircle,
     UserPlus,
-    AlertCircle
+    HelpCircle
 } from "lucide-react";
 import InstallButton from "@/components/InstallButton";
 import Notifications from "@/components/Notifications";
@@ -68,6 +68,8 @@ export default function HockeyDashboard() {
     const [isPending, setIsPending] = useState(false);
     const [statusMessage, setStatusMessage] = useState<{text: string; type: "success" | "error";} | null>(null);
 
+    const [isHelpSent, setIsHelpSent] = useState(false);
+
     // 2. Load profile from local storage on mount
     const supabase = createClient();
 
@@ -80,6 +82,7 @@ export default function HockeyDashboard() {
 
         async function loadInitialData() {
             setIsLoading(true);
+
             try {
                 // 1. Get the SAVED profile from Local Storage
                 const savedData = localStorage.getItem("hokejs_user_session");
@@ -94,11 +97,14 @@ export default function HockeyDashboard() {
                 ]);
 
                 // 3. Verify the session is still valid (PIN hasn't changed)
+                console.log(userProfile);
                 if (userProfile && parsedSession && userProfile.pin_code === parsedSession.pin_code) {
                     setProfile(userProfile);
                 } else {
                     // If PIN changed or user not found, clear local storage
-                    if (parsedSession) localStorage.removeItem("hokejs_user_session");
+                    if (parsedSession) {
+                        localStorage.removeItem("hokejs_user_session")
+                    };
                     setProfile(undefined);
                 }
                 setDbSessions(sessions || []);
@@ -162,7 +168,6 @@ export default function HockeyDashboard() {
             setProfile(result.user);
 
             setStatusMessage({ text: result.message, type: "success" });
-
             // Give the user 1000ms to see the success checkmark
             setTimeout(() => {
                 if (typeof globalThis !== "undefined" && (globalThis as any).location) {
@@ -180,6 +185,15 @@ export default function HockeyDashboard() {
 
     const [formState, formAction] = useActionState(profileDispatchAction, {});
     const error = formState?.error;
+
+    const handleRequestHelp = async () => {
+        const { phone, name, pin } = formState?.failedAttempt || {};
+
+        const result = await requestPinHelpAction(phone, name, pin);
+        if (result.success) {
+            setIsHelpSent(true);
+        }
+    };
 
     const handleRegister = async (sessionId: string) => {
         if (!profile?.id) {
@@ -380,11 +394,30 @@ export default function HockeyDashboard() {
                                 PIN jāsastāv vismaz no 4 cipariem!
                         </p>
                     )}
-                    {formState?.error && (
-                        <div className="flex items-center gap-2 p-2 text-[11px] bg-red-50 border border-red-200 text-red-600 rounded-md animate-in fade-in slide-in-from-top-1">
-                            <AlertCircle className="w-3 h-3 flex-shrink-0" />
-                            <p>{formState.error}</p>
+                    {formState?.error === "Nepareizs PIN kods šim numuram!" && !isHelpSent && (
+                        <div className="mt-2 p-3 border border-amber-200 bg-amber-50 rounded-lg space-y-2">
+                            <p className="text-[11px] text-amber-800">
+                                Aizmirsi savu PIN? Noklikšķini zemāk, un ar tevi sazināsies.
+                            </p>
+                            <Button 
+                                type="button"
+                                variant="outline" 
+                                size="sm" 
+                                className="w-full bg-white border-amber-300 text-amber-700 hover:bg-amber-100 h-8 text-xs"
+                                onClick={(e) => {
+                                    e.preventDefault(); // Prevent form submission
+                                    handleRequestHelp();
+                                }}
+                            >
+                                <HelpCircle className="w-3 h-3 mr-1" /> Nevaru pieslēgties
+                            </Button>
                         </div>
+                    )}
+
+                    {isHelpSent && (
+                        <p className="text-[11px] text-green-600 font-medium text-center">
+                            📩 Pieprasījums nosūtīts. Gaidi ziņu!
+                        </p>
                     )}
                     <div className="flex flex-col gap-2">
                         <Button size="sm" className="w-full">

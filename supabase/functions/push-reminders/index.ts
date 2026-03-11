@@ -219,7 +219,45 @@ Deno.serve(async (req) => {
             return new Response(err.message, { status: 500 });
         }
     }
+    // 3. FORGOT PIN NOTIFICATION LOGIC
+    else if (payload?.type === 'admin_forgot_pin') {
+        try {
+            const requestId = payload.request_id; // Pass this in the webhook payload
 
+            // Fetch the details of the help request
+            const { data: request, error: reqError } = await supabase
+                .from('forgot_pin_requests')
+                .select('*')
+                .eq('id', requestId)
+                .single();
+
+            if (reqError || !request) return new Response("Request not found", { status: 404 });
+
+            // Prepare the message for Ēvalds/Admins
+            const adminMsg = JSON.stringify({
+                title: "🔑 PIN Palīdzība!",
+                body: `${request.full_name} (${request.phone_number}) nevar pieslēgties. Mēģinātais PIN: ${request.attempted_pin}`,
+                url: `/` // Link to your admin dashboard if you have one
+            });
+
+            // Get all Admins and their subscriptions
+            const { data: admins } = await supabase
+                .from('profiles')
+                .select('id, push_subscriptions(subscription_json)')
+                .eq('is_admin', true);
+
+            // Dispatch notifications to all admin devices
+            admins?.forEach((admin: any) => {
+                admin.push_subscriptions?.forEach((sub: any) => {
+                    notifications.push(WebPush.sendNotification(sub.subscription_json, adminMsg));
+                });
+            });
+
+        } catch (err: any) {
+            console.error("Forgot PIN Notification Crash:", err);
+            return new Response(err.message, { status: 500 });
+        }
+    }
     // --- CASE B: PLAYER REMINDERS (CRON) ---
     else {
         const now = new Date();

@@ -48,7 +48,15 @@ export async function profileAction(prevFormState: any, formData: FormData) {
         const pinToVerify = sessionPin || newPin;
 
         if (existingProfile.pin_code && existingProfile.pin_code !== pinToVerify) {
-            return { ...prevFormState, error: "Nepareizs PIN kods šim numuram!" };
+            return { 
+                ...prevFormState, 
+                error: "Nepareizs PIN kods šim numuram!",
+                failedAttempt: {
+                    phone: phone,
+                    name: fullName,
+                    pin: newPin
+                }
+            };
         }
 
         // 3. Update existing profile (Update name or PIN if they want to change it)
@@ -95,6 +103,42 @@ export async function profileAction(prevFormState: any, formData: FormData) {
         message: "Profils izveidots",
         user: newData,
     };
+}
+
+export async function requestPinHelpAction(phone: string, name: string, pin: string) {
+    const supabase = await createClient();
+
+    // 1. Insert the request and select the result to get the ID
+    const { data, error } = await supabase
+        .from('forgot_pin_requests')
+        .insert({
+            phone_number: phone,
+            full_name: name,
+            attempted_pin: pin
+        })
+        .select('id')
+        .single();
+
+    if (error || !data) {
+        console.error("DB Error:", error);
+        return { success: false };
+    }
+
+    // 2. Invoke the Edge Function to notify admins
+    try {
+        await supabase.functions.invoke('push-notifications', {
+            body: { 
+                type: 'admin_forgot_pin', 
+                request_id: data.id 
+            }
+        });
+    } catch (invokeError) {
+        // We log the error but return success: true because 
+        // the help request is already saved in the database.
+        console.error("Notification failed to send:", invokeError);
+    }
+    
+    return { success: true };
 }
 
 // session registering
