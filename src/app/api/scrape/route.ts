@@ -628,7 +628,7 @@ function parseToISO(dateStr: string, timeStr: string) {
             janvāris: 1,
             februāris: 2,
             marts: 3,
-            aprīilis: 4,
+            aprīlis: 4,
             maijs: 5,
             jūnijs: 6,
             jūlijs: 7,
