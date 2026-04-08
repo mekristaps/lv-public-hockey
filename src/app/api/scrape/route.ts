@@ -687,7 +687,7 @@ function parseToISO(dateStr: string, timeStr: string) {
         const isoNoZone = `${year}-${pad(month)}-${pad(day)}T${pad(hours)}:${pad(minutes)}:00`;
 
         // Create the date object and specify it's Riga time
-        const finalDate = new Date(isoNoZone.replace(" ", "T") + "+02:00");
+        const finalDate = new Date(year, month - 1, day, hours, minutes);
         // Note: For absolute precision, use a library like 'luxon' to handle DST automatically,
         // but +02:00 works for winter time in Latvia.
 
