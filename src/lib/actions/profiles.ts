@@ -2,8 +2,19 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 
-export async function profileAction(prevFormState: any, formData: FormData) {
+export interface UserProfile {
+    created_at: string;
+    id: string;
+    phone_number: string;
+    pin_code: string;
+    full_name: string;
+    is_admin: boolean;
+    registrations: any[];
+}
+
+export async function profileActionOLD(prevFormState: any, formData: FormData) {
     const supabase = await createClient();
 
     // Convert to strings early to avoid TypeScript 'File' errors
@@ -105,6 +116,199 @@ export async function profileAction(prevFormState: any, formData: FormData) {
     };
 }
 
+// actions
+export async function profileAction(prevFormState: any, formData: FormData) {
+    
+    const mode = formData.get('mode');
+    const fullName = formData.get("full_name")?.toString().trim() || "";
+    const phone = formData.get("phone")?.toString().replace(/\s/g, "") || "";
+    const pin = formData.get('pin_code')?.toString() || "";
+
+    const oldPhone = formData.get('old_phone')?.toString().replace(/\s/g, "") || "";
+    const oldPin = formData.get('old_pin')?.toString() || "";
+
+    // 1. Phone Validation: Only digits, 8-12 characters
+    const phoneRegex = /^\d{8,12}$/;
+    if (!phoneRegex.test(phone)) {
+        return { ...prevFormState, error: "Nederīgs telefona numurs! Jābūt 8-12 cipariem (bez burtiem)." };
+    }
+
+    // Login
+    if (mode === 'login') {
+        // 3. PIN Validation: Exactly 4 digits
+        const pinRegex = /^\d{4}$/;
+        if (!pinRegex.test(pin)) {
+            return { ...prevFormState, error: "PIN kodam jābūt tieši 4 cipariem!" };
+        }
+
+        if (!phone || !pin) {
+            return { ...prevFormState, error: "Lūdzu aizpildiet visus laukus" };
+        }
+
+        return loginProfile(formData);
+    }
+
+    // Update
+    if (mode === 'edit') {
+        // 3. PIN Validation: Exactly 4 digits
+
+        if (oldPin !== pin) {
+            const pinRegex = /^\d{4}$/;
+            if (!pinRegex.test(pin)) {
+                return { ...prevFormState, error: "PIN kodam jābūt tieši 4 cipariem!" };
+            }
+        }
+        
+
+        if (!phone || !fullName) {
+            return { ...prevFormState, error: "Lūdzu aizpildiet visus laukus" };
+        }
+
+        return loginProfile(formData);
+    }
+
+    // Register
+    if (mode === 'register') {
+        const nameRegex = /^[A-ZĀČĒĢĪĶĻŅŠŪŽa-zāčēģīķļņšūž\s-]+$/;
+        if (!nameRegex.test(fullName) || fullName.length < 3) {
+            return { ...prevFormState, error: "Nederīgs vārds! Izmantojiet tikai burtus (vismaz 3)." };
+        }
+
+        if (!phone || !fullName) {
+            return { ...prevFormState, error: "Lūdzu aizpildiet visus laukus" };
+        }
+
+        return registerProfile(formData);
+    }
+}
+
+async function registerProfile(formData: FormData) {
+    const supabase = await createClient();
+    
+    const fullName = formData.get('full_name')?.toString().trim() || "";
+    const phone = formData.get('phone')?.toString().replace(/\s/g, "") || "";
+
+    // Inside profileAction
+    const generatedPin = Math.floor(1000 + Math.random() * 9000).toString();
+
+    const { error } = await supabase
+        .from('profiles')
+        .upsert({ 
+            phone_number: phone, 
+            full_name: fullName, 
+            pin_code: generatedPin 
+        });
+
+    if (!error) {
+        revalidatePath("/");
+        return { 
+            success: true, 
+            generatedPin: generatedPin, 
+            phone: phone,
+            isReset: true
+        };
+    }
+
+    return { 
+        success: false,
+        error: error.message || "Failed to register new user",
+        errorType: 'general'
+    };
+}
+
+async function loginProfile(formData: FormData) {
+    const supabase = await createClient();
+    const phone = formData.get('phone')?.toString().replace(/\s/g, "") || "";
+    const pin = formData.get('pin_code')?.toString() || "";
+
+    const { data: userExists } = await supabase
+        .from("profiles")
+        .select("phone_number, full_name")
+        .eq("phone_number", phone)
+        .single();
+
+    if (!userExists) {
+        return { 
+            success: false, 
+            error: "Lietotājs ar šādu numuru nav atrasts. Lūdzu, reģistrējieties!",
+            errorType: 'user_not_found'
+        };
+    }
+
+    const { data: existingProfile, error: pinError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("phone_number", phone)
+        .eq("pin_code", pin)
+        .single();
+
+    if (pinError) {
+        return { 
+            success: false,
+            error: "Nepareizs PIN kods šim numuram!",
+            errorType: 'wrong_pin',
+            failedAttempt: {
+                phone: phone,
+                name: userExists.full_name
+            }
+        };
+    }
+
+    // set for 30 days
+    const cookieStore = await cookies();
+    cookieStore.set("hokejs_user_id", existingProfile.id, { maxAge: 60 * 60 * 24 * 30 });
+
+    revalidatePath("/");
+    return { success: true, data: existingProfile };
+}
+
+async function updateProfile(formData: FormData) {
+    const supabase = await createClient();
+    const phone = formData.get('phone')?.toString().replace(/\s/g, "") || "";
+    const oldPhone = formData.get('old_phone')?.toString().replace(/\s/g, "") || "";
+    const pin = formData.get('pin_code')?.toString() || "";
+    const oldPin = formData.get('old_pin')?.toString() || "";
+
+    const { data: userExists } = await supabase
+        .from("profiles")
+        .select("phone_number, full_name")
+        .eq("phone_number", phone)
+        .eq("pin_code", oldPin)
+        .single();
+    
+    if (!userExists) {
+        return { 
+            success: false, 
+            error: "Lietotājs ar šādu numuru nav atrasts. Lūdzu, reģistrējieties!",
+            errorType: 'user_not_found'
+        };
+    }
+
+    const { data: newUserData, error: pinError } = await supabase
+        .from("profiles")
+        .update({
+            phone_number: phone,
+            pin_code: pin
+        })
+        .eq("phone_number", oldPhone)
+        .eq("pin_code", oldPin);
+    
+        if (pinError) {
+        return { 
+            success: false,
+            error: "Nepareizs PIN kods šim numuram!",
+            errorType: 'wrong_pin',
+            failedAttempt: {
+                phone: phone,
+                name: userExists.full_name
+            }
+        };
+    }
+
+    revalidatePath("/");
+    return { success: true, updatedProfile: newUserData };
+}
+
 export async function requestPinHelpAction(phone: string, name: string, pin: string) {
     const supabase = await createClient();
 
@@ -121,10 +325,35 @@ export async function requestPinHelpAction(phone: string, name: string, pin: str
 
     if (error || !data) {
         console.error("DB Error:", error);
-        return { success: false };
+        return { success: false, error: error };
     }
     
     return { success: true };
+}
+
+export async function getUserProfile(id: string) {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from('profiles')
+        .select(`
+            *,
+            registrations (
+                session_id,
+                guests_count
+            )
+        `)
+        .eq('id', id)
+        .single();
+
+    if (error) {
+        if (error.code !== 'PGRST116') { // Ignore "No rows found" logs
+            console.error('Error fetching user profile:', error);
+        }
+        return null;
+    }
+
+    return data;
 }
 
 // session registering

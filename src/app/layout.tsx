@@ -1,7 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
+
+import { UserProvider, useUser } from "@/context/UserContext";
 
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { getUserProfile } from "@/lib/actions/profiles";
 
 const geistSans = Geist({
 	variable: "--font-geist-sans",
@@ -60,15 +64,20 @@ interface RootLayoutProps {
 
 // 2. Make the function 'async'
 export default async function RootLayout({ children }: RootLayoutProps) {
-	// 3. Initialize Supabase and check for user
-	//const supabase = await createClient();
+	const cookieStore = await cookies();
+    const userId = cookieStore.get("hokejs_user_id")?.value;
+	let profile = null;
+
+	if (userId) {
+		profile = await getUserProfile(userId);
+	}
 
 	return (
 		<html lang="en" dir="ltr">
-			<body
-				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-			>
-				{children}
+			<body className={`${geistSans.variable} ${geistMono.variable} relative antialiased`} >
+				<UserProvider initialProfile={profile}>
+					{children}
+				</UserProvider>
 			</body>
 		</html>
 	);
