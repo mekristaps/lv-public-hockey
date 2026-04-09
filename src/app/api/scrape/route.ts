@@ -358,9 +358,12 @@ async function getInboxSchedule() {
     let scheduleData = null;
 
     try {
-        const response = await axios.get(
-            `${process.env.ARENA_INBOX_URL}/export?format=csv`,
-        );
+        // Define the base URL
+        const url = new URL(`${process.env.ARENA_INBOX_URL}/export`);
+        // Add parameters cleanly
+        url.searchParams.append('format', 'csv');
+        const response = await axios.get(url.toString());
+        
         const csvData = response.data;
 
         if (!csvData) {
@@ -410,7 +413,9 @@ async function getVolvoSchedule() {
     let scheduleData = [] as any;
 
     try {
-        const { data } = await axios.get(`${process.env.ARENA_VOLVO_URL}`);
+        // Define the base URL
+        const url = new URL(`${process.env.ARENA_VOLVO_URL}`);
+        const { data } = await axios.get(url.toString());
 
         if (!data) {
             console.error("Failed to load data for VOLVO!");
@@ -530,10 +535,11 @@ async function getMarupeSchedule() {
         return;
     }
 
-    const marupeURL = `${process.env.ARENA_MARUPE_URL}/${currentYear}/${currentWeek}`;
     let scheduleData = [] as any;
     try {
-        const { data } = await axios.get(marupeURL);
+        const url = new URL(`${process.env.ARENA_MARUPE_URL}/${currentYear}/${currentWeek}`);
+        const { data } = await axios.get(url.toString());
+        
         if (!data) {
             console.error("Failed to load data for MARUPE!");
         }
