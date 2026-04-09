@@ -691,7 +691,7 @@ function parseToISO(dateStr: string, timeStr: string) {
         // Note: For absolute precision, use a library like 'luxon' to handle DST automatically,
         // but +02:00 works for winter time in Latvia.
 
-        return finalDate.toISOString();
+        return isoNoZone;
     } catch (e) {
         return null;
     }
