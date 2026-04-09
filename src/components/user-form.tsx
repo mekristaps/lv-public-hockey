@@ -163,7 +163,7 @@ export function UserForm({ profile, modeChange }: UserFormProps) {
                         id="phone"
                         defaultValue={initialFormValues.phone}
                         className="h-10"
-                        autoComplete="off" 
+                        autoComplete="one-time-code"
                         autoCorrect="off" 
                         spellCheck="false"
                         required
@@ -178,7 +178,7 @@ export function UserForm({ profile, modeChange }: UserFormProps) {
                                 type="password"
                                 inputMode="numeric"
                                 className="h-10 pl-9"
-                                autoComplete="off" 
+                                autoComplete="new-password" 
                                 autoCorrect="off" 
                                 spellCheck="false"
                                 required={mode === 'login'}
