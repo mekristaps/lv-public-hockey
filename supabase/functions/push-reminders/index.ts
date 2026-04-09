@@ -53,13 +53,14 @@ Deno.serve(async (req) => {
 
             const dateObj = new Date(session.start_time);
             const formattedTime = dateObj.toLocaleTimeString('lv-LV', { 
-                hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Riga' 
+                hour: '2-digit', 
+                minute: '2-digit',
             });
 
             const msg = JSON.stringify({
                 title: "Sastāvs savākts! 🏒✅",
                 body: `Pieteikušies 6 spēlētāji - ${session.arena_name} plkst. ${formattedTime}. Tiekamies!`,
-                url: `/sessions/${session.id}`
+                url: `/#session-${session.id}`
             });
 
             // Notify everyone in this session
@@ -114,7 +115,7 @@ Deno.serve(async (req) => {
             }).replace(/\//g, '.');
 
             const formatTime = (iso: string) => new Date(iso).toLocaleTimeString('lv-LV', {
-                hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Riga'
+                hour: '2-digit', minute: '2-digit', hour12: false
             });
 
             // sessionInfo constructed from Payload
@@ -188,7 +189,7 @@ Deno.serve(async (req) => {
             // Format Date/Time (Latvian style with Riga Timezone)
             const dateObj = new Date(session.start_time);
             const formattedDate = dateObj.toLocaleDateString('lv-LV', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'Europe/Riga' }).replace(/\//g, '.');
-            const formattedTime = dateObj.toLocaleTimeString('lv-LV', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Riga' });
+            const formattedTime = dateObj.toLocaleTimeString('lv-LV', { hour: '2-digit', minute: '2-digit', hour12: false });
 
             const sessionInfo = `${session.arena_name} (${formattedDate} | ${formattedTime})`;
             const playerCount = session.registrations?.length || 0;
@@ -200,7 +201,7 @@ Deno.serve(async (req) => {
             const adminMsg = JSON.stringify({
                 title: adminTitle,
                 body: `${profile.full_name} ${isJoin ? 'pieteicās' : 'atteicās'}: ${sessionInfo}. Kopā: ${playerCount}`,
-                url: `/sessions/${session.id}`
+                url: `/#session-${session.id}`
             });
 
             // Get Admins
@@ -217,7 +218,7 @@ Deno.serve(async (req) => {
                 const playerMsg = JSON.stringify({
                     title: "Sastāvs savākts! 🏒✅",
                     body: `Minimums (6/6) sasniegts spēlei: ${sessionInfo}. Tiekamies laukumā!`,
-                    url: `/sessions/${session.id}`
+                    url: `/#session-${session.id}`
                 });
 
                 session.registrations?.forEach((reg: any) => {
@@ -301,7 +302,7 @@ Deno.serve(async (req) => {
                             JSON.stringify({
                                 title: "Hokeja Atgādinājums! 🏒",
                                 body: `Spēle "${game.arena_name}" sākas pēc stundas!`,
-                                url: `/games/${game.id}`,
+                                url: `/#session-${game.id}`,
                             }),
                         ),
                     );
