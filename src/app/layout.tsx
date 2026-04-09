@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 
-import { UserProvider, useUser } from "@/context/UserContext";
+import { UserProvider } from "@/context/UserContext";
 
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";

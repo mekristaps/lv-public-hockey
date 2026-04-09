@@ -2,11 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { subscribeUserToPush } from "@/utils/push";
+
 import { Bell, BellOff, Loader2 } from "lucide-react";
 
-export default function Notifications() {
-    const [isEnabled, setIsEnabled] = useState(false);
-    const [loading, setLoading] = useState(false);
+interface NotificationsProps {
+    phoneNumber: string;
+}
+
+export default function Notifications({ phoneNumber }: NotificationsProps) {
+    const [isEnabled, setIsEnabled] = useState<boolean>(false);
+    const [loading, setLoading] = useState<boolean>(false);
 
     useEffect(() => {
         async function checkStatus() {
@@ -39,7 +44,6 @@ export default function Notifications() {
 
     const handleSubscribe = async () => {
         // Safe access to localStorage
-        const phoneNumber = typeof window !== "undefined" ? localStorage.getItem("hokejs_phone") : null;
 
         if (!phoneNumber) {
             alert("Lūdzu, vispirms saglabājiet savu profilu!");

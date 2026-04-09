@@ -1,4 +1,4 @@
-"use client";
+'use client'
 
 import { useState, useEffect } from "react";
 import { Download, X } from "lucide-react";
@@ -11,6 +11,9 @@ export default function InstallButton() {
 	useEffect(() => {
         // 1. Create a safe reference to the global object
         const gt = globalThis as any;
+
+        console.log('Window object:', gt.window);
+        console.log('Window object:', window);
 
         // 2. Check for standalone mode (PWA already installed)
         const isStandalone = 

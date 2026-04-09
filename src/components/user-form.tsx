@@ -10,6 +10,8 @@ import { Lock, UserPlus, LogIn, ChevronLeft } from "lucide-react";
 
 import { Loader } from './loader';
 
+type modes = 'login' | 'register' | 'edit' | 'main' | null;
+
 interface FormFields {
     phone: string;
     full_name: string;
@@ -17,10 +19,11 @@ interface FormFields {
 
 interface UserFormProps {
     profile: UserProfile | null;
+    modeChange: (mode: modes) => void;
 }
 
-export function UserForm({ profile }: UserFormProps) {
-    const [mode, setMode] = useState<'login' | 'register' | 'edit' | null>(profile ? 'edit' : null);
+export function UserForm({ profile, modeChange }: UserFormProps) {
+    const [mode, setMode] = useState<modes>(profile ? 'edit' : null);
     const [isHelpSent, setIsHelpSent] = useState<boolean>(false);
     const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -61,6 +64,11 @@ export function UserForm({ profile }: UserFormProps) {
         window.location.href = `https://wa.me/${cleanPhone}?text=${encodedMsg}`;
     }
 
+    const toggleMode = (mode: modes) => {
+        modeChange(mode);
+        setMode(mode);
+    };
+
     useEffect(() => {
         if (formState?.success) {
         
@@ -91,7 +99,7 @@ export function UserForm({ profile }: UserFormProps) {
                 <Button 
                     variant="outline" 
                     className="flex flex-col h-24 gap-2 border-2 hover:border-primary hover:bg-primary/5"
-                    onClick={() => setMode('login')}
+                    onClick={() => toggleMode('login')}
                 >
                     <LogIn className="w-6 h-6" />
                     <span>Pieslēgties</span>
@@ -99,7 +107,7 @@ export function UserForm({ profile }: UserFormProps) {
                 <Button 
                     variant="outline" 
                     className="flex flex-col h-24 gap-2 border-2 hover:border-primary hover:bg-primary/5"
-                    onClick={() => setMode('register')}
+                    onClick={() => toggleMode('register')}
                 >
                     <UserPlus className="w-6 h-6" />
                     <span>Reģistrēties</span>
@@ -112,16 +120,15 @@ export function UserForm({ profile }: UserFormProps) {
         <form action={formAction} className="space-y-2">
             {!profile && (
                 <div className='flex items-center'>
-                    <button 
+                    <Button 
+                        variant='ghost'
                         type="button" 
-                        onClick={() => setMode(null)}
-                        className="flex items-center text-s text-muted-foreground hover:text-primary transition-colors"
+                        onClick={() => toggleMode(null)}
+                        className="w-full h-10 font-bold"
                     >
-                        <ChevronLeft className="w-3 h-3 mr-1" /> Atpakaļ
-                    </button>
-                    <h2 className="text-s mx-auto font-medium tracking-widest text-muted-foreground">
-                        {mode === 'register' ? 'Izveidot profilu' : 'Pieslēgties'}
-                    </h2>
+                        <ChevronLeft className="w-3 h-3 mr-1" /> 
+                        Atpakaļ
+                    </Button>
                 </div>
             )}
             

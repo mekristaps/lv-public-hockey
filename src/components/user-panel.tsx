@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react';
+
 import { UserProfile } from '@/lib/actions/profiles';
 
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +13,16 @@ import { UserForm } from "@/components/user-form";
 interface UserPanelProps {
     profile: UserProfile | null;
 }
+
+type modes = 'login' | 'register' | 'edit' | 'main' | null;
+
 export function UserPanel({ profile }: UserPanelProps) {
+    const [mode, setMode] = useState<modes>(null);
+
+    const changeMode = (mode: modes) => {
+        setMode(mode);
+        console.log('Mode chang: ', mode);
+    };
 
     return (
         <section className="overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-sm transition-all">
@@ -42,27 +53,38 @@ export function UserPanel({ profile }: UserPanelProps) {
                     </div>
                 </div>
             ) : (
-                <div className="px-5 pt-5 text-center bg-slate-50/30 border-b border-dashed">
-                    <h2 className="text-sm font-semibold text-slate-800">Sveiks, spēlētāj!</h2>
-                    <p className="text-xs text-muted-foreground">Pieslēdzies, lai pieteiktos spēlēm</p>
+                <div className="px-5 pt-5 pb-1 text-center bg-slate-50/30 border-b border-dashed">
+                    <h2 className="text-sm font-semibold text-slate-800">
+                        {mode === null && ('Sveiks, spēlētāj!')}
+                        {mode === 'register' && ('Reģistrēties')}
+                        {mode === 'login' && ('Pieslēgties')}
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                        {mode === null && ('Pieslēdzies vai reģistrējies, lai pieteiktos spēlēm')}
+                        {mode === 'register' && ('Reģistrējies, lai pieteiktos spēlēm')}
+                        {mode === 'login' && ('Pieslēdzies, lai pieteiktos spēlēm')}
+                        
+                    </p>
                 </div>
             )}
 
             {/* Form & Notifications Area */}
-            <div className="px-5 pt-1 pb-5 space-y-6">
+            <div className="px-5 pt-1 pb-0 space-y-6">
                 <div className="space-y-1 mb-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Profila iestatījumi
-                    </span>
-                    <UserForm profile={profile} />
+                    {profile && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Profila iestatījumi
+                        </span>
+                    )}
+                    <UserForm profile={profile} modeChange={changeMode} />
                 </div>
             
                 {profile && (
-                    <div className="border-t border-slate-50">
+                    <div className="border-t border-slate-50 mb-4 ">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
                             Paziņojumi
                         </span>
-                        <Notifications />
+                        <Notifications phoneNumber={profile.phone_number} />
                     </div>
                 )}
             </div>

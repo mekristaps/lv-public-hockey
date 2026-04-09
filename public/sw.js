@@ -17,6 +17,7 @@ self.addEventListener("push", (event) => {
         body: "Jums ir jauna ziņa!",
         icon: "/icon-192x192.png",
         badge: "/icon-192x192.png",
+        vibrate: [200, 100, 200],   // Haptic feedback for hockey intensity!
         data: { url: "/" },
     };
 
@@ -40,7 +41,7 @@ self.addEventListener("push", (event) => {
 // handle clicking notification
 self.addEventListener("notificationclick", (event) => {
     event.notification.close();
-    const urlToOpen = event.notification.data.url || "/";
+    const urlToOpen = new URL(event.notification.data.url || "/", self.location.origin).href;
 
     event.waitUntil(
         clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
@@ -56,4 +57,13 @@ self.addEventListener("notificationclick", (event) => {
             }
         })
     );
+});
+
+// 4. Background Sync (Optional but helpful for hockey signups)
+// If a user signs up for a game while their internet drops, 
+// this can retry the request when they come back online.
+self.addEventListener("sync", (event) => {
+    if (event.tag === "sync-game-registration") {
+        console.log("Re-syncing hockey registration...");
+    }
 });
