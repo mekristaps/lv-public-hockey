@@ -135,8 +135,8 @@ export function UserForm({ profile, modeChange }: UserFormProps) {
             <input type="hidden" name="mode" value={mode ? mode : 'register'} />
             {profile && (
                 <>
-                    <input type="hidden" name="old_pin" value={profile.pin_code} />
-                    <input type="hidden" name="old_phone" value={profile.phone_number} />
+                    <input type="hidden" name="old_pin" value={profile.pin_code} autoComplete="off" autoCorrect="off" spellCheck="false"/>
+                    <input type="hidden" name="old_phone" value={profile.phone_number} autoComplete="off" autoCorrect="off" spellCheck="false" />
                 </>
             )}
             <div className="space-y-2">
@@ -148,6 +148,9 @@ export function UserForm({ profile, modeChange }: UserFormProps) {
                         id="full_name"
                         defaultValue={initialFormValues.full_name}
                         className="h-10"
+                        autoComplete="off" 
+                        autoCorrect="off" 
+                        spellCheck="false"
                         required
                     />
                 )}
@@ -160,6 +163,9 @@ export function UserForm({ profile, modeChange }: UserFormProps) {
                         id="phone"
                         defaultValue={initialFormValues.phone}
                         className="h-10"
+                        autoComplete="off" 
+                        autoCorrect="off" 
+                        spellCheck="false"
                         required
                     />
                     {/* PIN FIELD: Show in Login or Edit mode */}
@@ -172,6 +178,9 @@ export function UserForm({ profile, modeChange }: UserFormProps) {
                                 type="password"
                                 inputMode="numeric"
                                 className="h-10 pl-9"
+                                autoComplete="off" 
+                                autoCorrect="off" 
+                                spellCheck="false"
                                 required={mode === 'login'}
                             />
                             <Lock className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
