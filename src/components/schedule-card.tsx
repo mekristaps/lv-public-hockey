@@ -223,7 +223,7 @@ export function ScheduleCard({ session, userRegisteredSessions, profile }: Sched
                                 className="text-[12px] font-normal"
                             >
                                 {reg.profiles.full_name}
-                                {profile?.is_admin && (
+                                {reg.profiles?.phone_number && (
                                     <a
                                         href={`tel:${reg.profiles.phone_number}`}
                                         className="text-blue-600 flex items-center gap-1 font-mono text-xs hover:underline"

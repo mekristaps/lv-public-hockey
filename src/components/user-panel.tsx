@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react';
-
-import { UserProfile } from '@/lib/actions/profiles';
+import { useUser } from "@/context/UserContext";
 
 import { Badge } from "@/components/ui/badge";
 import { ShieldCheck } from "lucide-react";
@@ -10,18 +9,14 @@ import { ShieldCheck } from "lucide-react";
 import Notifications from "@/components/Notifications";
 import { UserForm } from "@/components/user-form";
 
-interface UserPanelProps {
-    profile: UserProfile | null;
-}
-
 type modes = 'login' | 'register' | 'edit' | 'main' | null;
 
-export function UserPanel({ profile }: UserPanelProps) {
+export function UserPanel() {
     const [mode, setMode] = useState<modes>(null);
+    const { profile } = useUser();
 
     const changeMode = (mode: modes) => {
         setMode(mode);
-        console.log('Mode chang: ', mode);
     };
 
     return (

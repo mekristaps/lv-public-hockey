@@ -6,8 +6,8 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization") || "";
     const envKey = Deno.env.get("MY_NOTIFICATION_SECRET") || "";
 
-    console.log("Header starts with:", authHeader.substring(0, 17)); // Should be "Bearer eyJhbG..."
-    console.log("Env Key starts with:", envKey.substring(0, 10));    // Should be "eyJhbG..."
+    //console.log("Header starts with:", authHeader.substring(0, 17)); // Should be "Bearer eyJhbG..."
+    //console.log("Env Key starts with:", envKey.substring(0, 10));    // Should be "eyJhbG..."
 
     if (authHeader !== `Bearer ${envKey}`) {
         return new Response("Unauthorized", { status: 401 });
@@ -156,6 +156,10 @@ Deno.serve(async (req) => {
     // --- CASE A: ADMIN & PLAYER NOTIFICATIONS (JOIN / UNREG) ---
     else if (payload?.type === 'admin_notification' || payload?.type === 'admin_unreg') {
         const isJoin = payload.type === 'admin_notification';
+        const dbOp = payload.op; // 'INSERT' or 'UPDATE'
+        const oldGuests = payload.old_guests || 0;
+        const newGuests = payload.new_guests || 0;
+        const isGuestChange = dbOp === 'UPDATE' && oldGuests !== newGuests;
 
         try {
             let profileId = payload.profile_id;
@@ -179,6 +183,7 @@ Deno.serve(async (req) => {
                 supabase.from('sessions').select(`
                     id, arena_name, start_time, 
                     registrations ( 
+                        guests_count,
                         profiles ( id, is_admin, push_subscriptions ( subscription_json ) ) 
                     )
                 `).eq('id', sessionId).single()
@@ -192,15 +197,28 @@ Deno.serve(async (req) => {
             const formattedTime = dateObj.toLocaleTimeString('lv-LV', { hour: '2-digit', minute: '2-digit', hour12: false });
 
             const sessionInfo = `${session.arena_name} (${formattedDate} | ${formattedTime})`;
-            const playerCount = session.registrations?.length || 0;
-
+            // Calculate total players: Count of rows + sum of all guests_count
+            const playerCount = (session.registrations?.length || 0) + 
+                session.registrations.reduce((sum: number, r: any) => sum + (r.guests_count || 0), 0);
+            //const playerCount = session.registrations?.length || 0;
+            
             // 1. ADMIN NOTIFICATION LOGIC
-            let adminTitle = isJoin ? "Jauns spēlētājs! 🏒" : "Spēlētājs atteicās ❌";
-            if (isJoin && playerCount === 6) adminTitle = "Minimums sasniegts! ✅ (6/6)";
+            let adminTitle = isJoin ? "Jauns spēlētājs! 🏒" : "Spēlētājs atteicās! ❌";
+            let actionText = isJoin ? 'pieteicās' : 'atteicās';
+
+            // Custom logic for guest updates
+            if (isGuestChange) {
+                const diff = newGuests - oldGuests;
+                adminTitle = diff > 0 ? "Jauns spēlētājs! 🏒" : "Spēlētājs atteicās! ❌";
+                actionText = diff > 0 ? `pievienoja viesi` : `noņēma viesi`;
+            }
+
+            const reachedTarget = isJoin && playerCount === 6;
+            if (reachedTarget) adminTitle = "Minimums sasniegts! ✅ (6/6)";
 
             const adminMsg = JSON.stringify({
                 title: adminTitle,
-                body: `${profile.full_name} ${isJoin ? 'pieteicās' : 'atteicās'}: ${sessionInfo}. Kopā: ${playerCount}`,
+                body: `${profile.full_name} ${actionText}: ${sessionInfo}. Kopā: ${playerCount}`,
                 url: `/#session-${session.id}`
             });
 
@@ -214,7 +232,7 @@ Deno.serve(async (req) => {
             });
 
             // 2. PLAYER "GAME ON" NOTIFICATION (Only if count hits exactly 6)
-            if (isJoin && playerCount === 6) {
+            if (reachedTarget) {
                 const playerMsg = JSON.stringify({
                     title: "Sastāvs savākts! 🏒✅",
                     body: `Minimums (6/6) sasniegts spēlei: ${sessionInfo}. Tiekamies laukumā!`,

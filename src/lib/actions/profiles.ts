@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
+import { headers, cookies } from "next/headers";
 
 export interface UserProfile {
     created_at: string;
@@ -151,20 +151,18 @@ export async function profileAction(prevFormState: any, formData: FormData) {
     // Update
     if (mode === 'edit') {
         // 3. PIN Validation: Exactly 4 digits
-
-        if (oldPin !== pin) {
-            const pinRegex = /^\d{4}$/;
-            if (!pinRegex.test(pin)) {
-                return { ...prevFormState, error: "PIN kodam jābūt tieši 4 cipariem!" };
-            }
-        }
-        
+        // if (pin.trim() !== '') {
+        //     const pinRegex = /^\d{4}$/;
+        //     if (!pinRegex.test(pin)) {
+        //         return { ...prevFormState, error: "PIN kodam jābūt tieši 4 cipariem!" };
+        //     }
+        // }
 
         if (!phone || !fullName) {
             return { ...prevFormState, error: "Lūdzu aizpildiet visus laukus" };
         }
 
-        return loginProfile(formData);
+        return updateProfile(formData);
     }
 
     // Register
@@ -203,6 +201,7 @@ async function registerProfile(formData: FormData) {
         revalidatePath("/");
         return { 
             success: true, 
+            type: 'register',
             generatedPin: generatedPin, 
             phone: phone,
             isReset: true
@@ -220,20 +219,52 @@ async function loginProfile(formData: FormData) {
     const supabase = await createClient();
     const phone = formData.get('phone')?.toString().replace(/\s/g, "") || "";
     const pin = formData.get('pin_code')?.toString() || "";
-
-    const { data: userExists } = await supabase
+    
+    const { data: profile, error } = await supabase
         .from("profiles")
-        .select("phone_number, full_name")
+        .select("*")
         .eq("phone_number", phone)
-        .single();
+        .maybeSingle();
 
-    if (!userExists) {
+    if (!profile) {
         return { 
             success: false, 
             error: "Lietotājs ar šādu numuru nav atrasts. Lūdzu, reģistrējieties!",
             errorType: 'user_not_found'
         };
     }
+
+    // 2. Validate PIN (Active or Recovery)
+    const isPrimaryPin = profile.pin_code === pin;
+    const isRecoveryPin = profile.old_pin === pin && profile.pin_change_requested;
+
+    if (!isPrimaryPin && !isRecoveryPin) {
+        return { 
+            success: false,
+            error: "Nepareizs PIN kods šim numuram!",
+            failedAttempt: { phone, pin: pin },
+            errorType: 'wrong_pin'
+        };
+    }
+
+    if (profile.pin_change_requested) {
+        await supabase
+            .from("profiles")
+            .update({
+                pin_code: isRecoveryPin ? profile.old_pin : profile.pin_code,
+                old_pin: null,
+                pin_change_requested: false
+            })
+            .eq("id", profile.id);
+    }
+
+    const cookieStore = await cookies();
+    cookieStore.set("hokejs_user_id", profile.id, { 
+        maxAge: 60 * 60 * 24 * 30,
+        path: '/',
+        httpOnly: true, // Security best practice
+        sameSite: 'lax'
+    });
 
     const { data: existingProfile, error: pinError } = await supabase
         .from("profiles")
@@ -249,21 +280,18 @@ async function loginProfile(formData: FormData) {
             errorType: 'wrong_pin',
             failedAttempt: {
                 phone: phone,
-                name: userExists.full_name
+                name: profile.full_name
             }
         };
     }
 
-    // set for 30 days
-    const cookieStore = await cookies();
-    cookieStore.set("hokejs_user_id", existingProfile.id, { maxAge: 60 * 60 * 24 * 30 });
-
     revalidatePath("/");
-    return { success: true, data: existingProfile };
+    return { success: true, type: 'login', data: existingProfile };
 }
 
 async function updateProfile(formData: FormData) {
     const supabase = await createClient();
+    const fullName = formData.get('full_name')?.toString().trim() || "";
     const phone = formData.get('phone')?.toString().replace(/\s/g, "") || "";
     const oldPhone = formData.get('old_phone')?.toString().replace(/\s/g, "") || "";
     const pin = formData.get('pin_code')?.toString() || "";
@@ -284,20 +312,32 @@ async function updateProfile(formData: FormData) {
         };
     }
 
+    // Inside profileAction
+    let newPin = pin;
+    let phoneChanged = false;
+
+    if (phone !== oldPhone) {
+        newPin = Math.floor(1000 + Math.random() * 9000).toString();
+        phoneChanged = true;
+    }
+    
     const { data: newUserData, error: pinError } = await supabase
         .from("profiles")
         .update({
+            full_name: fullName,
             phone_number: phone,
-            pin_code: pin
+            pin_code: newPin
         })
         .eq("phone_number", oldPhone)
-        .eq("pin_code", oldPin);
+        .eq("pin_code", oldPin)
+        .select()
+        .single();
     
-        if (pinError) {
+    if (pinError) {
         return { 
             success: false,
-            error: "Nepareizs PIN kods šim numuram!",
-            errorType: 'wrong_pin',
+            error: pinError.message,
+            errorType: 'update_error',
             failedAttempt: {
                 phone: phone,
                 name: userExists.full_name
@@ -306,29 +346,70 @@ async function updateProfile(formData: FormData) {
     }
 
     revalidatePath("/");
-    return { success: true, updatedProfile: newUserData };
+    return { 
+        success: true, 
+        type: 'update', 
+        updatedProfile: newUserData, 
+        phoneChanged: phoneChanged 
+    };
 }
 
-export async function requestPinHelpAction(phone: string, name: string, pin: string) {
+export async function requestPinHelpAction(phone: string, pin: string) {
     const supabase = await createClient();
+    const cleanPhone = phone.replace(/\s/g, "");
+    const formattedPhone = cleanPhone.length === 8 ? '371' + cleanPhone : cleanPhone;
+
+    // 1. Check if user exists
+    const { data: user } = await supabase
+        .from("profiles")
+        .select("id, pin_code, full_name")
+        .eq("phone_number", cleanPhone)
+        .single();
+    
+    if (!user) return { success: false, error: "Lietotājs nav atrasts" };
+
+    const newPin = Math.floor(1000 + Math.random() * 9000).toString();
+
+    // 3. Move current PIN to old_pin and set new PIN
+    const { error: updateError } = await supabase
+        .from("profiles")
+        .update({
+            old_pin: user.pin_code, // Store current pin as backup
+            pin_code: newPin,       // Set new pin as active
+            pin_change_requested: true
+        })
+        .eq("id", user.id);
+    
+    const currentURL = window.location.href;
+    const msg = `Jaunais Masu hokeja lietotnes PIN: ${newPin}, ${currentURL}`;
+    const waLink = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`;
+    
+    const headerList = await headers();
+    const ip = headerList.get("x-forwarded-for")?.split(',')[0] || "unknown";
+    // If you are on Vercel specifically, they provide a cleaner header
+    const vercelIp = headerList.get("x-real-ip");
 
     // 1. Insert the request and select the result to get the ID
-    const { data, error } = await supabase
+    const { error } = await supabase
         .from('forgot_pin_requests')
         .insert({
+            created_at: new Date().toISOString(),
+            full_name: user.full_name,
             phone_number: phone,
-            full_name: name,
-            attempted_pin: pin
-        })
-        .select('id')
-        .single();
-
-    if (error || !data) {
+            attempted_pin: pin,
+            user_ip: ip,
+            resend_link: waLink,
+        });
+    
+    if (error) {
         console.error("DB Error:", error);
         return { success: false, error: error };
     }
     
-    return { success: true };
+    return { 
+        success: true,
+        type: 'pin_reset'
+    };
 }
 
 export async function getUserProfile(id: string) {
@@ -337,7 +418,10 @@ export async function getUserProfile(id: string) {
     const { data, error } = await supabase
         .from('profiles')
         .select(`
-            *,
+            id,
+            full_name,
+            phone_number,
+            is_admin,
             registrations (
                 session_id,
                 guests_count
@@ -354,6 +438,26 @@ export async function getUserProfile(id: string) {
     }
 
     return data;
+}
+
+export async function isUserAdmin() {
+    const cookieStore = await cookies();
+    const userId = cookieStore.get("hokejs_user_id")?.value;
+    if (!userId) return false;
+
+    const supabase = await createClient();
+    // 2. Check the database
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', userId)
+        .single();
+
+    if (error || !data) {
+        return false;
+    }
+
+    return !!data.is_admin;
 }
 
 // session registering

@@ -1,23 +1,19 @@
 'use client'
 
 import { useState, useEffect } from "react";
-
-import {
-    CheckCircle2,
-    CalendarDays
-} from "lucide-react";
+import { useUser } from "@/context/UserContext";
 import { getSchedule } from "@/lib/actions/schedule";
-import { registerAction, updateGuestsAction, UserProfile } from "@/lib/actions/profiles";
+
+import { CalendarDays } from "lucide-react";
+
 import { FullScreenLoader } from "./full-screen-loader";
 import { ScheduleCard } from "./schedule-card";
 
-interface ScheduleSectionProps {
-    profile: UserProfile | null;
-}
 
-export function ScheduleSection({ profile }: ScheduleSectionProps) {
+export function ScheduleSection() {
     const [dbSessions, setDbSessions] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
+    const { profile } = useUser();
 
     // group sessions by day for UI
     const groupedSchedule = dbSessions.reduce((acc: any, session) => {

@@ -1,13 +1,21 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { isUserAdmin } from "./profiles";
 import { revalidatePath } from "next/cache";
 
 export async function getSchedule() {
     const supabase = await createClient();
-    
+    const adminStatus = await isUserAdmin();
+
     const now = new Date();
     now.setHours(0, 0, 0, 0);
+
+    let profileFields = "full_name";
+
+    if (adminStatus) {
+        profileFields += ", phone_number";
+    }
 
     const { data, error } = await supabase
         .from('sessions')
@@ -16,8 +24,7 @@ export async function getSchedule() {
             registrations (
                 id,
                 profiles (
-                    full_name,
-                    phone_number
+                    ${profileFields}
                 ),
                 guests_count
             )

@@ -3,10 +3,12 @@
 import { useEffect, useState, useActionState } from 'react';
 
 import { UserProfile, profileAction, requestPinHelpAction } from '@/lib/actions/profiles';
+import { useUser } from '@/context/UserContext';
+import { sendWhatsAppMessage } from '@/utils/whatsapp';
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Lock, UserPlus, LogIn, ChevronLeft } from "lucide-react";
+import { Lock, UserPlus, LogIn, ChevronLeft, AlertCircle } from "lucide-react";
 
 import { Loader } from './loader';
 
@@ -24,25 +26,32 @@ interface UserFormProps {
 
 export function UserForm({ profile, modeChange }: UserFormProps) {
     const [mode, setMode] = useState<modes>(profile ? 'edit' : null);
+    const [resetPin, setResetPin] = useState<boolean>(false);
     const [isHelpSent, setIsHelpSent] = useState<boolean>(false);
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [currentPhone, setCurrentPhone] = useState<string>(profile ? profile.phone_number : '');
+    
+    const { setProfile } = useUser();
 
     const initialFormValues: FormFields = {
         phone: profile?.phone_number || "",
         full_name: profile?.full_name || "",
     };
 
+    const isPhoneChanged = currentPhone !== initialFormValues.phone && initialFormValues.phone !== "";
+
     const [formState, formAction, isPending] = useActionState(profileAction, initialFormValues);
     const error = formState?.error;
 
     const handleRequestHelp = async () => {
-        const { phone, name, pin } = formState?.failedAttempt || {};
+        const { phone, pin } = formState?.failedAttempt || {};
         setIsLoading(true);
 
         try {
-            const response = await requestPinHelpAction(phone, name, pin);
+            const response = await requestPinHelpAction(phone, pin);
             if (response.success) {
                 setIsHelpSent(true);
+                localStorage.setItem('hokejs_last_pin_request', Date.now().toString());
             } else {
                console.error("Failed to send help request:", response?.error);
             }
@@ -55,37 +64,56 @@ export function UserForm({ profile, modeChange }: UserFormProps) {
         }
     };
 
-    const sendWhatsAppMessage = (phone: string, pin: string) => {
-        let cleanPhone = phone.replace(/\D/g, '');
-        if (cleanPhone.length === 8) cleanPhone = '371' + cleanPhone;
-        const currentURL = window.location.href;
-        const msg = `Masu hokeja lietotnes PIN: ${pin}, ${currentURL}`;
-        const encodedMsg = encodeURIComponent(msg);
-        window.location.href = `https://wa.me/${cleanPhone}?text=${encodedMsg}`;
-    }
-
     const toggleMode = (mode: modes) => {
         modeChange(mode);
         setMode(mode);
     };
 
     useEffect(() => {
-        if (formState?.success) {
         
+        const checkPinRequestStatus = () => {
+            const lastRequest = localStorage.getItem('hokejs_last_pin_request');
+            
+            if (!lastRequest) return { exists: false };
+            setIsHelpSent(true);
+        };
+        
+        if (formState?.success) {
+
             // 2. If a PIN was generated (New Register/Reset), trigger the WhatsApp flow
-            if (formState.generatedPin) {
+            if (formState.generatedPin && formState?.type === 'register') {
                 sendWhatsAppMessage(formState.phone, formState.generatedPin);
                 // Note: On iPhone, the redirect below might happen before WhatsApp opens.
                 // You might want to skip the redirect here and let the WhatsApp button handle it.
-            } else if (formState.updatedProfile) {
-                sendWhatsAppMessage(formState.newUserData.phone_number, formState.newUserData.pin_code);
+            } else if (formState?.type === 'update' && formState.updatedProfile) {
+                setProfile(formState.updatedProfile);
+
+                if (formState.phoneChanged) {
+                    sendWhatsAppMessage(formState.newUserData.phone_number, formState.newUserData.pin_code);
+                }
+                
                 window.location.href = "/"; 
-            } else {
+            } else if (formState?.type === 'login') {
                 // 3. If it was a standard Login (no new PIN generated), just go home
                 // set user profile after login
+                localStorage.removeItem('hokejs_last_pin_request');
+                setIsHelpSent(false);
+                window.location.href = "/"; 
+            } else if (formState?.type === 'pin_reset') {
+                
+                setIsHelpSent(true);
+            } else {
                 window.location.href = "/"; 
             }
+        } else if (!formState?.success) {
+
+            if (formState.errorType === 'wrong_pin') {
+                setResetPin(true);
+            }
         }
+
+        checkPinRequestStatus();
+
     }, [formState, profile]);
 
     if (isLoading || isPending) {
@@ -162,14 +190,23 @@ export function UserForm({ profile, modeChange }: UserFormProps) {
                         name="phone"
                         id="phone"
                         defaultValue={initialFormValues.phone}
+                        onChange={(e) => setCurrentPhone(e.target.value)}
                         className="h-10"
                         autoComplete="one-time-code"
                         autoCorrect="off" 
                         spellCheck="false"
                         required
                     />
+                    {(profile && isPhoneChanged) && (
+                        <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50 border border-amber-200 animate-in fade-in slide-in-from-top-1">
+                            <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                            <div className="text-xs text-amber-800 leading-relaxed">
+                                <strong>Uzmanību:</strong> Mainot telefona numuru, Jums tiks nosūtīts jauns PIN kods uz WhatsApp drošības nolūkos.
+                            </div>
+                        </div>
+                    )}
                     {/* PIN FIELD: Show in Login or Edit mode */}
-                    {(mode === 'login' || mode === 'edit') && (
+                    {(mode === 'login') && (
                         <div className="relative">
                             <Input
                                 placeholder={profile ? "Mainīt PIN" : "Ievadiet savu PIN"}
@@ -190,21 +227,45 @@ export function UserForm({ profile, modeChange }: UserFormProps) {
             </div>
 
             {/* Error Message & PIN Recovery */}
-            {formState?.errorType === "wrong_pin" && !isHelpSent && (
+            {resetPin && !isHelpSent && (
                 <div className="p-3 border border-amber-200 bg-amber-50 rounded-lg">
                     <p className="text-[11px] text-amber-800 mb-2">Aizmirsi savu PIN?</p>
                     <Button 
+                        disabled={isLoading}
                         type="button"
                         variant="outline" 
                         size="sm" 
                         className="w-full bg-white border-amber-300 h-8 text-xs text-amber-700"
-                        // onClick={(e) => {
-                        //     e.preventDefault(); // Prevent form submission
-                        //     handleRequestHelp();
-                        // }}
+                        onClick={(e) => {
+                            e.preventDefault(); // Prevent form submission
+                            handleRequestHelp();
+                        }}
                     >
-                        Saņemt jaunu PIN WhatsApp
+                        {isLoading ? "Apstrādā..." : "Pieprasīt jaunu PIN"}
                     </Button>
+                </div>
+            )}
+
+            {isHelpSent && (
+                <div className="p-3 border border-emerald-200 bg-emerald-50 rounded-lg animate-in slide-in-from-bottom-2">
+                    <div className="flex items-center gap-2 mb-1">
+                        {/* Success Checkmark */}
+                        <div className="flex items-center justify-center w-4 h-4 bg-emerald-500 rounded-full">
+                            <svg 
+                                viewBox="0 0 24 24" 
+                                fill="none" 
+                                className="w-3 h-3 text-white stroke-[3]" 
+                                stroke="currentColor"
+                            >
+                                <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </div>
+                        <p className="text-[11px] text-emerald-800 font-bold">Pieprasījums veiksmīgs!</p>
+                    </div>
+                    <p className="text-[10px] text-emerald-700 leading-tight">
+                        Jauns PIN ir izveidots. Administrators to tūlīt nosūtīs uz Jūsu WhatsApp. 
+                        Lūdzu, gaidiet ziņu.
+                    </p>
                 </div>
             )}
 
