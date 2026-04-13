@@ -36,7 +36,7 @@ export function ScheduleSection() {
     const allSessions = Object.values(groupedSchedule).flat();
 
     // filter to find only the sessions where the current user's profile ID exists
-    const userRegisteredSessions = allSessions.filter((session: any) => session.registrations?.some((reg: any) => reg.profiles?.phone_number === profile?.phone_number));
+    const userRegisteredSessions = allSessions.filter((session: any) => session.registrations?.some((reg: any) => reg.profiles?.id === profile?.id));
 
     useEffect(() => {
         async function loadInitialData() {

@@ -42,8 +42,7 @@ export function ScheduleCard({ session, userRegisteredSessions, profile }: Sched
     let currentReg = null;
 
     if (profile) {
-        isAlreadyRegistered = session.registrations?.some((reg: any) => reg.profiles?.phone_number === profile?.phone_number);
-
+        isAlreadyRegistered = session.registrations?.some((reg: any) => reg.profiles?.id === profile?.id);
         conflictingSession = userRegisteredSessions.find((s: any) => {
             if (s.id === session.id) {
                 return false;
@@ -55,7 +54,7 @@ export function ScheduleCard({ session, userRegisteredSessions, profile }: Sched
         }) as any;
 
         conflict = !!conflictingSession;
-        currentReg = session.registrations?.find((reg: any) => reg.profiles?.phone_number === profile?.phone_number);
+        currentReg = session.registrations?.find((reg: any) => reg.profiles?.id === profile?.id);
     }
 
     const registrationCount = session.registrations?.length || 0;
@@ -64,6 +63,18 @@ export function ScheduleCard({ session, userRegisteredSessions, profile }: Sched
     const isExpired = new Date(session.start_time).getTime() < new Date().getTime();
 
     const handleRegister = async (sessionId: string) => {
+        if (!profile) {
+            const userPanel = document.getElementById('user-panel');
+            
+            if (userPanel) {
+                userPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                userPanel.classList.add('ring-2', 'ring-blue-500', 'transition-all');
+                setTimeout(() => userPanel.classList.remove('ring-2', 'ring-blue-500'), 1000);
+            }
+
+            return;
+        }
+
         if (!profile?.id) {
             alert("Lūdzu, vispirms saglabājiet savu profilu!");
             return;
@@ -306,7 +317,18 @@ export function ScheduleCard({ session, userRegisteredSessions, profile }: Sched
                             )
                         }
                     </div>
-                    {!isExpired && 
+                    {!profile && (
+                        <div className="flex items-end gap-2 w-full">
+                            <Button
+                                onClick={() => handleRegister(session.id)}
+                                className="flex-1 h-10"
+                            >
+                                Pieteikties
+                            </Button>
+                        </div>
+                    )}
+                    
+                    {(!isExpired && profile) && 
                         (
                             <div className="flex items-end gap-2 w-full">
                                 <Button
@@ -322,11 +344,13 @@ export function ScheduleCard({ session, userRegisteredSessions, profile }: Sched
                                         </>
                                     ) : conflict ? (
                                         "Mainīt uz šo"
-                                    ) : (
+                                        ) : (
                                         "Pieteikties"
-                                    )}
+                                        )
+                                    }
                                 </Button>
                                 {/* GUEST STEPPER */}
+                                
                                 {isAlreadyRegistered && (
                                     <div className="flex flex-col items-center gap-1">
                                         <span className="text-[10px] uppercase font-bold text-slate-400">Viesi</span>

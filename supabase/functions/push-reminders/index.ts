@@ -216,22 +216,36 @@ Deno.serve(async (req) => {
             const reachedTarget = isJoin && playerCount === 6;
             if (reachedTarget) adminTitle = "Minimums sasniegts! ✅ (6/6)";
 
-            const adminMsg = JSON.stringify({
+            const playerStatusMsg = JSON.stringify({
                 title: adminTitle,
                 body: `${profile.full_name} ${actionText}: ${sessionInfo}. Kopā: ${playerCount}`,
                 url: `/#session-${session.id}`
             });
 
-            // Get Admins
-            const { data: admins } = await supabase.from('profiles').select('id, push_subscriptions(subscription_json)').eq('is_admin', true);
+            // 2. SEND TO ADMINS (All admins, regardless of session)
+            const { data: admins } = await supabase
+                .from('profiles')
+                .select('id, push_subscriptions(subscription_json)')
+                .eq('is_admin', true);
 
             admins?.forEach((admin: any) => {
                 admin.push_subscriptions?.forEach((sub: any) => {
-                    notifications.push(WebPush.sendNotification(sub.subscription_json, adminMsg));
+                    notifications.push(WebPush.sendNotification(sub.subscription_json, playerStatusMsg));
                 });
             });
 
-            // 2. PLAYER "GAME ON" NOTIFICATION (Only if count hits exactly 6)
+            // 3. SEND TO ALL REGISTERED USERS
+            session.registrations?.forEach((reg: any) => {
+                const p = reg.profiles;
+                // Only send to non-admins (admins already got the admin alert)
+                if (p && !p.is_admin && p.id !== profileId) {
+                    p.push_subscriptions?.forEach((sub: any) => {
+                        notifications.push(WebPush.sendNotification(sub.subscription_json, playerStatusMsg));
+                    });
+                }
+            });
+
+            // 4. PLAYER "GAME ON" NOTIFICATION (Only if count hits exactly 6)
             if (reachedTarget) {
                 const playerMsg = JSON.stringify({
                     title: "Sastāvs savākts! 🏒✅",

@@ -20,7 +20,10 @@ export function UserPanel() {
     };
 
     return (
-        <section className="overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-sm transition-all">
+        <section 
+            id="user-panel"
+            className="overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-sm transition-all"
+        >
             {/* Profile Header Area */}
             {profile ? (
                 <div className="bg-slate-50/50 px-5 pt-5 pb-1 border-b border-slate-100">

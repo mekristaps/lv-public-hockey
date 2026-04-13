@@ -8,10 +8,16 @@ export async function getSchedule() {
     const supabase = await createClient();
     const adminStatus = await isUserAdmin();
 
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    
+    // This creates "2026-04-13T00:00:00.000Z" exactly
+    const startOfToday = `${year}-${month}-${day}T00:00:00.000Z`;
 
     let profileFields = "full_name";
+    profileFields += ", id";
 
     if (adminStatus) {
         profileFields += ", phone_number";
@@ -29,7 +35,7 @@ export async function getSchedule() {
                 guests_count
             )
         `)
-        .gte('start_time', now.toISOString())
+        .gte('start_time', startOfToday)
         .order('start_time', { ascending: true });
 
     if (error) {
@@ -37,5 +43,6 @@ export async function getSchedule() {
         return [];
     }
 
+    revalidatePath('/');
     return data;
 }
