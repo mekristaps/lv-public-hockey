@@ -422,6 +422,7 @@ export async function getUserProfile(id: string) {
             full_name,
             phone_number,
             is_admin,
+            pin_code,
             registrations (
                 session_id,
                 guests_count
